@@ -537,7 +537,7 @@
             const kids = children.get(node);
             leafCounts.set(node, kids.length ? kids.reduce((sum, child) => sum + leafCounts.get(child), 0) : 1);
           }
-          components.push({ root: start, children, leafCounts, depths, width: (leafCounts.get(start) - 1) * 150 + 100, height: Math.max(...order.map(node => depths.get(node))) * 145 + 100 });
+          components.push({ root: start, children, leafCounts, depths, width: (leafCounts.get(start) - 1) * 180 + 100, height: Math.max(...order.map(node => depths.get(node))) * 170 + 100 });
         }
         if (n > 0) {
           const largestWidth = Math.max(...components.map(component => component.width));
@@ -555,8 +555,8 @@
               const childXs = kids.map(child => place(child, depth + 1));
               const nodeX = childXs.length
                 ? childXs.reduce((sum, childX) => sum + childX, 0) / childXs.length
-                : x + 50 + leafCursor++ * 150;
-              forestPositions[node] = { x: nodeX, y: y + 50 + depth * 145 };
+                : x + 50 + leafCursor++ * 180;
+              forestPositions[node] = { x: nodeX, y: y + 50 + depth * 170 };
               return nodeX;
             };
             place(component.root, 0);
@@ -668,8 +668,8 @@
         }
         if (layoutAnchors) {
           positions.forEach((point, index) => {
-            forces[index].x += (layoutAnchors[index].x - point.x) * .012;
-            forces[index].y += (layoutAnchors[index].y - point.y) * .012;
+            forces[index].x += (layoutAnchors[index].x - point.x) * .16;
+            forces[index].y += (layoutAnchors[index].y - point.y) * .16;
           });
         }
         const cooling = .62 * (1 - step / 260);
