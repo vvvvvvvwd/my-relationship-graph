@@ -77,7 +77,8 @@
     .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
     .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
     .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
-    .node { cursor:pointer; outline:none; }
+    .node { cursor:grab; outline:none; touch-action:none; }
+    .node:active { cursor:grabbing; }
     .node circle.node-ring { fill:#fbfff9; stroke:#d6ded8; stroke-width:2; filter:drop-shadow(0 4px 6px rgba(39,54,47,.1)); }
     .node .node-core { fill:#e6efe2; }
     .node.selected-first circle.node-ring { stroke:#718fae; stroke-width:4; }
@@ -159,7 +160,7 @@
             </label>
           </div>
         </div>
-        <div class="pair-result" id="pair-result" aria-live="polite">在图谱里点两位侠友，查看他们之间的情谊称呼。</div>
+        <div class="pair-result" id="pair-result" aria-live="polite">拖动头像调整位置；点击两位侠友查看他们之间的情谊称呼。</div>
         <div class="legend" aria-label="关系颜色说明">
           <span class="legend-item"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒</span>
           <span class="legend-item"><i class="legend-dot" style="--kind-color:#b98645"></i>结义</span>
@@ -257,6 +258,7 @@
       label.setAttribute("class", className);
       label.textContent = text;
       svg.appendChild(label);
+      return label;
     }
 
     function projectToSegment(point, start, end) {
@@ -395,7 +397,7 @@
           const focused = peopleById.get(focusedPersonId);
           result.innerHTML = `正在查看 <strong>${escapeHtml(focused?.name || "这位侠友")}</strong> 的情谊林；点“显示总图谱”返回全员图谱。`;
         } else {
-          result.textContent = "在图谱里点两位侠友，查看他们之间的情谊称呼。";
+          result.textContent = "拖动头像调整位置；点击两位侠友查看他们之间的情谊称呼。";
         }
         return;
       }
@@ -681,6 +683,7 @@
         });
       }
 
+      const edgeVisuals = [];
       validEdges.forEach(edge => {
         const fromIndex = indexById.get(String(edge.from_id));
         const toIndex = indexById.get(String(edge.to_id));
@@ -701,11 +704,13 @@
         bg.setAttribute("rx", 11); bg.setAttribute("class", "edge-label-bg");
         bg.style.setProperty("--edge-color", kindColors[kind]);
         svg.appendChild(bg);
-        addSvgText(svg, mx, my + 1, label, "edge-label");
+        const labelText = addSvgText(svg, mx, my + 1, label, "edge-label");
+        edgeVisuals.push({ fromIndex, toIndex, line, bg, labelText, labelWidth, offset: 0 });
       });
 
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
       svg.appendChild(defs);
+      const nodeElements = Array.from({ length: graphPeople.length });
       graphPeople.forEach((person, index) => {
         const point = positions[index];
         const personId = String(person.id);
@@ -716,8 +721,23 @@
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
         group.setAttribute("aria-label", isPersonGraph ? `查看${person.name || "未命名"}的情谊林` : `选择${person.name || "未命名"}查看两人称呼`);
-        group.addEventListener("click", () => isPersonGraph ? showPersonGraph(person.id) : choosePairPerson(person.id));
+        group.addEventListener("click", () => {
+          if (group.dataset.dragged === "true") { delete group.dataset.dragged; return; }
+          isPersonGraph ? showPersonGraph(person.id) : choosePairPerson(person.id);
+        });
         group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); group.click(); } });
+        group.addEventListener("pointerdown", event => {
+          if (event.button !== 0) return;
+          delete group.dataset.dragged;
+          const point = svg.createSVGPoint();
+          point.x = event.clientX; point.y = event.clientY;
+          const matrix = svg.getScreenCTM();
+          if (!matrix) return;
+          const graphPoint = point.matrixTransform(matrix.inverse());
+          activeDrag = { index, pointerId: event.pointerId, offsetX: positions[index].x - graphPoint.x, offsetY: positions[index].y - graphPoint.y, startX: event.clientX, startY: event.clientY, moved: false };
+          group.setPointerCapture(event.pointerId);
+          event.preventDefault();
+        });
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("r", connectedPeople.has(personId) ? "25" : "21");
         circle.setAttribute("class", "node-ring");
@@ -761,8 +781,106 @@
         labelText.setAttribute("y", 38);
         labelText.textContent = name;
         group.appendChild(labelText);
+        nodeElements[index] = group;
         svg.appendChild(group);
       });
+
+      let activeDrag = null;
+      const updateGraphVisuals = () => {
+        nodeElements.forEach((group, index) => group.setAttribute("transform", `translate(${positions[index].x}, ${positions[index].y})`));
+        edgeVisuals.forEach(({ fromIndex, toIndex, line, bg, labelText, labelWidth, offset }) => {
+          const from = positions[fromIndex], to = positions[toIndex];
+          line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+          line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+          const dx = to.x - from.x, dy = to.y - from.y;
+          const length = Math.max(Math.hypot(dx, dy), 1);
+          const mx = (from.x + to.x) / 2 - dy / length * offset;
+          const my = (from.y + to.y) / 2 + dx / length * offset;
+          bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
+          labelText.setAttribute("x", mx); labelText.setAttribute("y", my + 1);
+        });
+      };
+      const moveNearbyPeople = movingIndex => {
+        const moving = positions[movingIndex];
+        positions.forEach((other, index) => {
+          if (index === movingIndex) return;
+          let dx = other.x - moving.x, dy = other.y - moving.y;
+          let distance = Math.hypot(dx, dy);
+          if (distance >= 92) return;
+          if (distance < .001) {
+            const angle = (index + movingIndex + 1) * 2.399963229728653;
+            dx = Math.cos(angle); dy = Math.sin(angle); distance = 1;
+          }
+          const push = Math.min(10, (92 - distance) * .28);
+          other.x += dx / distance * push;
+          other.y += dy / distance * push;
+        });
+        linkedPairs.forEach(([a, b]) => {
+          for (let index = 0; index < n; index += 1) {
+            if (index === a || index === b || index === movingIndex) continue;
+            const projection = projectToSegment(positions[index], positions[a], positions[b]);
+            if (projection.t <= .04 || projection.t >= .96 || projection.distance >= 58) continue;
+            let dx = positions[index].x - projection.x, dy = positions[index].y - projection.y;
+            let distance = projection.distance;
+            if (distance < .001) {
+              const edgeX = positions[b].x - positions[a].x, edgeY = positions[b].y - positions[a].y;
+              dx = -edgeY; dy = edgeX; distance = Math.max(Math.hypot(dx, dy), 1);
+            }
+            const push = Math.min(7, (58 - projection.distance) * .24);
+            positions[index].x += dx / distance * push;
+            positions[index].y += dy / distance * push;
+          }
+        });
+      };
+      const separateCrossingLines = fixedIndex => {
+        for (let pass = 0; pass < 2; pass += 1) {
+          for (let first = 0; first < linkedPairs.length; first += 1) {
+            for (let second = first + 1; second < linkedPairs.length; second += 1) {
+              const [a, b] = linkedPairs[first], [c, d] = linkedPairs[second];
+              if ([a, b].some(index => index === c || index === d)) continue;
+              const crossing = segmentsCross(positions[a], positions[b], positions[c], positions[d]);
+              if (!crossing) continue;
+              const dx = positions[b].x - positions[a].x, dy = positions[b].y - positions[a].y;
+              const length = Math.max(Math.hypot(dx, dy), 1);
+              const nx = -dy / length, ny = dx / length;
+              const side = ((positions[c].x + positions[d].x - positions[a].x - positions[b].x) * nx + (positions[c].y + positions[d].y - positions[a].y - positions[b].y) * ny);
+              const sign = Math.abs(side) < .001 ? ((first + second) % 2 ? 1 : -1) : side > 0 ? 1 : -1;
+              const amount = 4;
+              [[a, 1 - crossing.t, -sign], [b, crossing.t, -sign], [c, 1 - crossing.u, sign], [d, crossing.u, sign]].forEach(([index, weight, direction]) => {
+                if (index === fixedIndex) return;
+                positions[index].x += nx * amount * weight * direction;
+                positions[index].y += ny * amount * weight * direction;
+                positions[index].x = Math.max(padding, Math.min(width - padding, positions[index].x));
+                positions[index].y = Math.max(padding, Math.min(height - padding, positions[index].y));
+              });
+            }
+          }
+        }
+      };
+      svg.addEventListener("pointermove", event => {
+        if (!activeDrag || event.pointerId !== activeDrag.pointerId) return;
+        const point = svg.createSVGPoint();
+        point.x = event.clientX; point.y = event.clientY;
+        const matrix = svg.getScreenCTM();
+        if (!matrix) return;
+        const graphPoint = point.matrixTransform(matrix.inverse());
+        if (!activeDrag.moved && Math.hypot(event.clientX - activeDrag.startX, event.clientY - activeDrag.startY) > 4) activeDrag.moved = true;
+        if (!activeDrag.moved) return;
+        const dragged = positions[activeDrag.index];
+        dragged.x = Math.max(padding, Math.min(width - padding, graphPoint.x + activeDrag.offsetX));
+        dragged.y = Math.max(padding, Math.min(height - padding, graphPoint.y + activeDrag.offsetY));
+        moveNearbyPeople(activeDrag.index);
+        separateCrossingLines(activeDrag.index);
+        updateGraphVisuals();
+        event.preventDefault();
+      });
+      const endGraphDrag = event => {
+        if (!activeDrag || event.pointerId !== activeDrag.pointerId) return;
+        if (activeDrag.moved) nodeElements[activeDrag.index].dataset.dragged = "true";
+        activeDrag = null;
+      };
+      svg.addEventListener("pointerup", endGraphDrag);
+      svg.addEventListener("pointercancel", endGraphDrag);
       canvas.appendChild(svg);
     }
 
