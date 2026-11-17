@@ -39,6 +39,7 @@
     .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #efeee8; }
     .row-main { min-width:0; overflow-wrap:anywhere; font-size:13px; }
     .row-note { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
+    .row-note.kind-note { display:inline-block; padding:3px 8px; border-radius:20px; background:color-mix(in srgb, var(--kind-color) 12%, white); color:var(--kind-color); font-weight:700; }
     .row-actions { display:flex; flex:0 0 auto; gap:6px; }
     .row-actions .button { min-height:32px; padding:0 10px; font-size:12px; }
     .empty { padding:10px 0; color:var(--muted); font-size:13px; }
@@ -85,15 +86,18 @@
       </div>
 
       <div class="card">
-        <div class="card-heading"><div><h2>关系</h2><p>选择两个人，写清楚他们彼此是什么关系。</p></div></div>
+        <div class="card-heading"><div><h2>情谊</h2><p>选择情谊类型，再选择相关人物。</p></div></div>
         <form id="relationship-form">
           <input id="relationship-id" type="hidden">
           <div class="grid">
-            <label>人物 A<select id="from-person" required></select></label>
-            <label>人物 B<select id="to-person" required></select></label>
-            <label>A 对 B 的关系<input id="label-from" maxlength="60" required placeholder="例如：妈妈"></label>
-            <label>B 对 A 的关系<input id="label-to" maxlength="60" placeholder="例如：女儿（可以不填）"></label>
+            <label>情谊类型<select id="relationship-kind" required><option value="">先选情谊类型</option><option value="师徒">师徒</option><option value="结义">结义</option><option value="侠缘">侠缘</option><option value="其他">其他（自定义）</option></select></label>
+            <div></div>
+            <label><span id="from-person-label">师傅</span><select id="from-person" required></select></label>
+            <label><span id="to-person-label">徒弟</span><select id="to-person" required></select></label>
+            <label id="label-from-wrap" class="hidden">A 对 B 的称呼<input id="label-from" maxlength="60" placeholder="例如：朋友"></label>
+            <label id="label-to-wrap" class="hidden">B 对 A 的称呼<input id="label-to" maxlength="60" placeholder="例如：知己（可以不填）"></label>
           </div>
+          <p class="status" id="relationship-kind-help">请先选择情谊类型。</p>
           <div class="actions"><button class="button primary" id="relationship-save" type="submit">添加关系</button><button class="button hidden" id="relationship-cancel" type="button">取消修改</button></div>
         </form>
         <p class="status" id="relationship-status" role="status"></p>
@@ -103,9 +107,13 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="site-data.js?v=2"></script>
+  <script src="site-data.js?v=3"></script>
   <script>
-    const config = window.SITE_CONFIG || {};
+    const savedSiteConfig = window.SITE_CONFIG || {};
+    const config = {
+      supabaseUrl: savedSiteConfig.supabaseUrl || "https://yncppbbaexylbkqzajll.supabase.co",
+      supabasePublishableKey: savedSiteConfig.supabasePublishableKey || "sb_publishable_1sMcCTII50L3ICA6wFdIpw_O81SALES"
+    };
     const loginCard = document.getElementById("login-card");
     const manager = document.getElementById("manager");
     const loginStatus = document.getElementById("login-status");
@@ -118,6 +126,7 @@
     let people = [];
     let relationships = [];
     let avatarColumnAvailable = true;
+    let relationshipKindColumnAvailable = true;
     let currentAvatarPath = "";
     let selectedAvatarFile = null;
     let removeAvatarOnSave = false;
@@ -168,7 +177,7 @@
       return button;
     }
 
-    function addRow(container, title, note, buttons = [], avatarPerson = null) {
+    function addRow(container, title, note, buttons = [], avatarPerson = null, kind = "") {
       const row = document.createElement("div");
       row.className = "row";
       if (avatarPerson) {
@@ -190,6 +199,10 @@
       if (note) {
         const small = document.createElement("span");
         small.className = "row-note";
+        if (kind) {
+          small.classList.add("kind-note");
+          small.style.setProperty("--kind-color", ({"师徒":"#718fae","结义":"#b98645","侠缘":"#b76a74","其他":"#82957f"})[kind] || "#82957f");
+        }
         small.textContent = note;
         main.appendChild(small);
       }
@@ -216,6 +229,30 @@
         });
         if (people.some(person => String(person.id) === previous)) select.value = previous;
       });
+    }
+
+    function selectedRelationshipKind() {
+      return document.getElementById("relationship-kind").value;
+    }
+
+    function updateRelationshipFields() {
+      const kind = selectedRelationshipKind();
+      const fromLabel = document.getElementById("from-person-label");
+      const toLabel = document.getElementById("to-person-label");
+      const fromWrap = document.getElementById("label-from-wrap");
+      const toWrap = document.getElementById("label-to-wrap");
+      const fromInput = document.getElementById("label-from");
+      const toInput = document.getElementById("label-to");
+      const help = document.getElementById("relationship-kind-help");
+      const custom = kind === "其他";
+      fromLabel.textContent = kind === "师徒" ? "师傅" : "人物 A";
+      toLabel.textContent = kind === "师徒" ? "徒弟" : "人物 B";
+      fromWrap.classList.toggle("hidden", !custom);
+      toWrap.classList.toggle("hidden", !custom);
+      fromInput.required = custom;
+      toInput.required = false;
+      help.textContent = kind === "师徒" ? "人物 A 是师傅，人物 B 是徒弟，图谱会按这个方向显示。" :
+        kind === "其他" ? "可以填写双方各自使用的称呼。" : kind ? `${kind}会用对应颜色显示在图谱上。` : "请先选择情谊类型。";
     }
 
     function renderPeople() {
@@ -264,11 +301,14 @@
         const a = people.find(person => String(person.id) === String(edge.from_id));
         const b = people.find(person => String(person.id) === String(edge.to_id));
         if (!a || !b) return;
+        const kind = ["师徒", "结义", "侠缘"].includes(edge.kind) ? edge.kind : "其他";
         const edit = makeButton("修改", "", () => {
           document.getElementById("relationship-id").value = edge.id;
           document.getElementById("from-person").value = edge.from_id;
           document.getElementById("to-person").value = edge.to_id;
-          document.getElementById("label-from").value = edge.label_from;
+          document.getElementById("relationship-kind").value = kind;
+          updateRelationshipFields();
+          document.getElementById("label-from").value = edge.label_from || "";
           document.getElementById("label-to").value = edge.label_to || "";
           document.getElementById("relationship-save").textContent = "保存修改";
           document.getElementById("relationship-cancel").classList.remove("hidden");
@@ -279,15 +319,16 @@
           if (error) return setStatus(document.getElementById("relationship-status"), error.message, true);
           await loadManagerData();
         });
-        const labels = edge.label_to ? `${edge.label_from} / ${edge.label_to}` : edge.label_from;
-        addRow(relationshipRows, `${a.name} — ${labels} — ${b.name}`, "A 对 B / B 对 A", [edit, remove]);
+        const note = kind === "师徒" ? `${a.name} 是师傅，${b.name} 是徒弟` :
+          kind === "其他" ? `${edge.label_from || "自定义关系"}${edge.label_to ? ` / ${edge.label_to}` : ""}` : kind;
+        addRow(relationshipRows, `${a.name} — ${b.name}`, note, [edit, remove], null, kind);
       });
     }
 
     async function loadManagerData() {
       let [peopleResult, relationshipResult] = await Promise.all([
         database.from("people").select("id,name,description,avatar_path").order("name"),
-        database.from("relationships").select("id,from_id,to_id,label_from,label_to").order("created_at")
+        database.from("relationships").select("id,from_id,to_id,label_from,label_to,kind").order("created_at")
       ]);
       if (peopleResult.error) {
         const legacyPeopleResult = await database.from("people").select("id,name,description").order("name");
@@ -297,7 +338,14 @@
       } else {
         avatarColumnAvailable = true;
       }
-      if (relationshipResult.error) throw relationshipResult.error;
+      if (relationshipResult.error) {
+        const legacyRelationshipResult = await database.from("relationships").select("id,from_id,to_id,label_from,label_to").order("created_at");
+        if (legacyRelationshipResult.error) throw legacyRelationshipResult.error;
+        relationshipResult = legacyRelationshipResult;
+        relationshipKindColumnAvailable = false;
+      } else {
+        relationshipKindColumnAvailable = true;
+      }
       people = peopleResult.data || [];
       relationships = relationshipResult.data || [];
       renderPeople();
@@ -311,8 +359,11 @@
       if (signedIn) loadManagerData().catch(error => setStatus(document.getElementById("relationship-status"), error.message, true));
     }
 
-    if (!ready()) {
-      setStatus(loginStatus, "网站还没有连接数据库。需要先完成设置，再登录管理。", true);
+    if (!config.supabaseUrl || !config.supabasePublishableKey) {
+      setStatus(loginStatus, "网站设置没有读到，请刷新管理页面后再试。", true);
+      document.getElementById("login-form").querySelector("button").disabled = true;
+    } else if (!window.supabase) {
+      setStatus(loginStatus, "数据库连接工具没有加载成功，请检查网络后刷新页面。", true);
       document.getElementById("login-form").querySelector("button").disabled = true;
     } else {
       database = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey);
@@ -459,25 +510,32 @@
     document.getElementById("person-cancel").addEventListener("click", cancelPersonEdit);
 
     const relationshipForm = document.getElementById("relationship-form");
+    document.getElementById("relationship-kind").addEventListener("change", updateRelationshipFields);
+    updateRelationshipFields();
     relationshipForm.addEventListener("submit", async event => {
       event.preventDefault();
       const id = document.getElementById("relationship-id").value;
       const fromId = document.getElementById("from-person").value;
       const toId = document.getElementById("to-person").value;
       if (!fromId || !toId || fromId === toId) return setStatus(document.getElementById("relationship-status"), "请选择两个不同的人。", true);
+      if (!relationshipKindColumnAvailable) return setStatus(document.getElementById("relationship-status"), "还差一步：请先把“情谊关系类型设置.sql”里的内容复制到 Supabase 的 SQL Editor 并运行，再添加情谊。", true);
+      const kind = selectedRelationshipKind();
       const values = {
         from_id: fromId,
         to_id: toId,
-        label_from: document.getElementById("label-from").value.trim(),
-        label_to: document.getElementById("label-to").value.trim()
+        kind,
+        label_from: kind === "师徒" ? "师傅" : kind === "其他" ? document.getElementById("label-from").value.trim() : kind,
+        label_to: kind === "师徒" ? "徒弟" : kind === "其他" ? document.getElementById("label-to").value.trim() : kind
       };
       const request = id ? database.from("relationships").update(values).eq("id", id) : database.from("relationships").insert(values);
       const { error } = await request;
-      if (error) return setStatus(document.getElementById("relationship-status"), "保存失败，请检查这两个人和关系内容。", true);
+      if (error) return setStatus(document.getElementById("relationship-status"), "保存失败，请检查数据库设置和两个人的选择。", true);
       relationshipForm.reset();
       document.getElementById("relationship-id").value = "";
       document.getElementById("relationship-save").textContent = "添加关系";
       document.getElementById("relationship-cancel").classList.add("hidden");
+      document.getElementById("relationship-kind").value = "";
+      updateRelationshipFields();
       setStatus(document.getElementById("relationship-status"), "关系已保存。关系图已经更新。");
       await loadManagerData();
     });
@@ -487,6 +545,8 @@
       document.getElementById("relationship-id").value = "";
       document.getElementById("relationship-save").textContent = "添加关系";
       document.getElementById("relationship-cancel").classList.add("hidden");
+      document.getElementById("relationship-kind").value = "";
+      updateRelationshipFields();
     });
   </script>
 </body>

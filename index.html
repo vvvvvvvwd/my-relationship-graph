@@ -48,27 +48,40 @@
     .person-button { width: 100%; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: left; cursor: pointer; }
     .person-button:hover { background: #f5f5f0; }
     .person-button[aria-pressed="true"] { background: var(--green-soft); }
+    .person-button.pair-first { outline: 2px solid #718fae; }
+    .person-button.pair-second { outline: 2px solid #b76a74; }
     .avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #e3efde; color: #4d7955; font-size: 14px; font-weight: 700; }
     .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .person-name { font-size: 14px; font-weight: 650; }
     .person-sub { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; }
     .graph-panel { min-height: 565px; display: flex; flex-direction: column; overflow: hidden; }
     .graph-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; border-bottom: 1px solid #efeee8; }
+    .graph-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+    .graph-button { min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--green); font-size:12px; font-weight:650; cursor:pointer; }
+    .graph-button.primary { border-color:var(--green); background:var(--green); color:#fff; }
+    .graph-button:disabled { opacity:.5; cursor:not-allowed; }
     .graph-top h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 650; }
     .graph-top p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
     .graph-badge { color: #53786d; background: #eef5f1; border-radius: 20px; padding: 7px 10px; font-size: 11px; white-space: nowrap; }
-    .canvas { position: relative; display: grid; min-height: 490px; flex: 1; place-items: center; overflow: hidden; background-image: linear-gradient(rgba(236, 245, 231, .68), rgba(236, 245, 231, .68)), radial-gradient(#d5e4d2 1px, transparent 1px); background-size: auto, 21px 21px; }
-    svg { width: 100%; height: 100%; min-height: 490px; overflow: visible; }
-    .edge { stroke: #b7c4bc; stroke-width: 1.5; }
-    .edge-label-bg { fill: #fffefa; stroke: #e5e4dc; stroke-width: 1; }
-    .edge-label { fill: #56645c; font-size: 12px; text-anchor: middle; dominant-baseline: central; }
-    .node { cursor: pointer; }
-    .node circle { fill: #fffefa; stroke: #d6ded8; stroke-width: 1.5; filter: drop-shadow(0 5px 7px rgba(39,54,47,.09)); }
-    .node.center circle { fill: var(--green); stroke: var(--green); }
-    .node text { fill: var(--ink); font-size: 13px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-    .node.center text { fill: #fff; font-weight: 700; }
-    .node-label-bg { fill: rgba(250,255,248,.96); stroke: #d8e6d5; stroke-width: 1; }
-    .node.avatar-node text { fill: var(--ink); font-size: 11px; font-weight: 650; }
+    .pair-result { min-height:53px; padding:12px 22px; border-bottom:1px solid #efeee8; color:var(--muted); font-size:13px; line-height:1.65; }
+    .pair-result strong { color:var(--ink); }
+    .legend { display:flex; flex-wrap:wrap; gap:8px 15px; padding:11px 22px 0; color:var(--muted); font-size:11px; }
+    .legend-item { display:inline-flex; align-items:center; gap:6px; }
+    .legend-dot { width:9px; height:9px; border-radius:50%; background:var(--kind-color); }
+    .canvas { position: relative; display: block; min-height: 490px; flex: 1; overflow:auto; background-image: linear-gradient(rgba(236, 245, 231, .68), rgba(236, 245, 231, .68)), radial-gradient(#d5e4d2 1px, transparent 1px); background-size: auto, 21px 21px; }
+    svg.graph-svg { display:block; width:100%; height:auto; min-height:490px; overflow:visible; }
+    .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2; opacity:.82; }
+    .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
+    .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
+    .node { cursor:pointer; outline:none; }
+    .node circle.node-ring { fill:#fbfff9; stroke:#d6ded8; stroke-width:2; filter:drop-shadow(0 4px 6px rgba(39,54,47,.1)); }
+    .node .node-core { fill:#e6efe2; }
+    .node.selected-first circle.node-ring { stroke:#718fae; stroke-width:4; }
+    .node.selected-second circle.node-ring { stroke:#b76a74; stroke-width:4; }
+    .node text { fill:var(--ink); font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+    .node .node-initial { fill:var(--green); font-size:14px; font-weight:750; }
+    .node .node-name { font-size:11px; font-weight:650; }
+    .node-label-bg { fill:rgba(250,255,248,.96); stroke:#d8e6d5; stroke-width:1; }
     .empty-state { max-width: 380px; padding: 28px; text-align: center; }
     .empty-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 19px; background: var(--green-soft); color: var(--green); font-size: 27px; }
     .empty-state h3 { margin: 0 0 8px; font-family: Georgia, "Songti SC", serif; font-size: 21px; }
@@ -88,7 +101,12 @@
       .person-button { min-width: 0; }
       .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .graph-panel { min-height: 430px; }
-      .canvas, svg { min-height: 370px; }
+      .graph-top { align-items:flex-start; flex-direction:column; padding:16px; }
+      .graph-actions { justify-content:flex-start; }
+      .pair-result { padding:11px 16px; }
+      .legend { padding:10px 16px 0; }
+      .canvas { min-height:370px; }
+      svg.graph-svg { min-width:760px; min-height:370px; }
     }
   </style>
 </head>
@@ -116,7 +134,7 @@
       <aside class="panel roster" aria-label="江湖游侠">
         <div class="panel-head">
           <h2>江湖游侠</h2>
-          <p>选择一个人，看看相关情谊</p>
+          <p>选两个人，查看他们之间的情谊</p>
         </div>
         <div class="people" id="people-list"></div>
       </aside>
@@ -124,10 +142,20 @@
       <section class="panel graph-panel" aria-label="情谊林">
         <div class="graph-top">
           <div>
-            <h2 id="graph-heading">情谊林</h2>
-            <p id="graph-subtitle">人物和情谊会显示在这里</p>
+            <h2 id="graph-heading">全部人物情谊图谱</h2>
+            <p id="graph-subtitle">点击两个人，看看他们之间的情谊</p>
           </div>
-          <div class="graph-badge">情谊</div>
+          <div class="graph-actions">
+            <button class="graph-button primary" id="random-pair" type="button">随机选两位</button>
+            <button class="graph-button" id="clear-pair" type="button">清除选择</button>
+          </div>
+        </div>
+        <div class="pair-result" id="pair-result" aria-live="polite">先点一位侠友，再点另一位，查看他们之间的情谊称呼。</div>
+        <div class="legend" aria-label="关系颜色说明">
+          <span class="legend-item"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒</span>
+          <span class="legend-item"><i class="legend-dot" style="--kind-color:#b98645"></i>结义</span>
+          <span class="legend-item"><i class="legend-dot" style="--kind-color:#b76a74"></i>侠缘</span>
+          <span class="legend-item"><i class="legend-dot" style="--kind-color:#82957f"></i>其他</span>
         </div>
         <div class="canvas" id="canvas"></div>
       </section>
@@ -136,16 +164,21 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="site-data.js?v=2"></script>
+  <script src="site-data.js?v=3"></script>
   <script>
-    const site = window.SITE_CONFIG || {};
+    const savedSiteConfig = window.SITE_CONFIG || {};
+    const site = {
+      title: savedSiteConfig.title || "一起来玩燕子",
+      supabaseUrl: savedSiteConfig.supabaseUrl || "https://yncppbbaexylbkqzajll.supabase.co",
+      supabasePublishableKey: savedSiteConfig.supabasePublishableKey || "sb_publishable_1sMcCTII50L3ICA6wFdIpw_O81SALES"
+    };
     const people = [];
     let relationships = [];
     let peopleById = new Map();
     const list = document.getElementById("people-list");
     const canvas = document.getElementById("canvas");
     const search = document.getElementById("search");
-    let selectedId = "";
+    let pairIds = [];
     let database = null;
 
     document.title = site.title || "一起来玩燕子";
@@ -178,7 +211,10 @@
         const button = document.createElement("button");
         button.className = "person-button";
         button.type = "button";
-        button.setAttribute("aria-pressed", String(String(person.id) === selectedId));
+        const personId = String(person.id);
+        button.setAttribute("aria-pressed", String(pairIds.includes(personId)));
+        if (pairIds[0] === personId) button.classList.add("pair-first");
+        if (pairIds[1] === personId) button.classList.add("pair-second");
         button.innerHTML = `<span class="avatar" aria-hidden="true"></span><span><span class="person-name"></span><span class="person-sub"></span></span>`;
         const avatar = button.querySelector(".avatar");
         if (person.avatar_path) {
@@ -191,11 +227,9 @@
           avatar.textContent = initials(person.name);
         }
         button.querySelector(".person-name").textContent = person.name || "未命名";
-        button.querySelector(".person-sub").textContent = person.description || "点击查看关系";
+        button.querySelector(".person-sub").textContent = person.description || "点击加入两人选择";
         button.addEventListener("click", () => {
-          selectedId = String(person.id);
-          renderList();
-          renderGraph();
+          choosePerson(person.id);
         });
         list.appendChild(button);
       });
@@ -210,81 +244,172 @@
       svg.appendChild(label);
     }
 
+    const kindColors = { "师徒": "#718fae", "结义": "#b98645", "侠缘": "#b76a74", "其他": "#82957f" };
+    function relationshipKind(edge) {
+      return ["师徒", "结义", "侠缘"].includes(edge.kind) ? edge.kind : "其他";
+    }
+    function edgeForPair(firstId, secondId) {
+      return relationships.filter(edge =>
+        (String(edge.from_id) === firstId && String(edge.to_id) === secondId) ||
+        (String(edge.from_id) === secondId && String(edge.to_id) === firstId)
+      );
+    }
+    function describePair() {
+      const result = document.getElementById("pair-result");
+      if (pairIds.length === 0) {
+        result.textContent = "先点一位侠友，再点另一位，查看他们之间的情谊称呼。";
+        return;
+      }
+      const first = peopleById.get(pairIds[0]);
+      if (pairIds.length === 1) {
+        result.innerHTML = `<strong>${escapeHtml(first?.name || "这位侠友")}</strong> 已选好，再点另一位侠友。`;
+        return;
+      }
+      const second = peopleById.get(pairIds[1]);
+      const found = edgeForPair(pairIds[0], pairIds[1]);
+      if (!found.length) {
+        result.innerHTML = `<strong>${escapeHtml(first?.name || "人物")}</strong> 和 <strong>${escapeHtml(second?.name || "人物")}</strong> 之间还没有记录情谊。`;
+        return;
+      }
+      const descriptions = found.map(edge => {
+        const kind = relationshipKind(edge);
+        if (kind === "师徒") {
+          const master = peopleById.get(String(edge.from_id));
+          const disciple = peopleById.get(String(edge.to_id));
+          return `${escapeHtml(master?.name || "人物")} 是师傅，${escapeHtml(disciple?.name || "人物")} 是徒弟`;
+        }
+        if (kind === "其他") {
+          const fromName = peopleById.get(String(edge.from_id))?.name || "人物 A";
+          const toName = peopleById.get(String(edge.to_id))?.name || "人物 B";
+          const parts = [];
+          if (edge.label_from) parts.push(`${escapeHtml(fromName)} 称 ${escapeHtml(toName)} 为“${escapeHtml(edge.label_from)}”`);
+          if (edge.label_to) parts.push(`${escapeHtml(toName)} 称 ${escapeHtml(fromName)} 为“${escapeHtml(edge.label_to)}”`);
+          return parts.join("；") || "其他情谊";
+        }
+        return `情谊：${kind}`;
+      });
+      result.innerHTML = `<strong>${escapeHtml(first?.name || "人物")}</strong> 和 <strong>${escapeHtml(second?.name || "人物")}</strong>：${descriptions.join("；")}`;
+    }
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, character => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[character]));
+    }
+    function choosePerson(id) {
+      const value = String(id);
+      if (pairIds.includes(value)) pairIds = pairIds.filter(item => item !== value);
+      else if (pairIds.length < 2) pairIds = [...pairIds, value];
+      else pairIds = [pairIds[1], value];
+      describePair();
+      renderList();
+      renderGraph();
+    }
+
     function renderGraph() {
       canvas.innerHTML = "";
       if (!people.length) {
-        document.getElementById("graph-heading").textContent = "情谊林";
-        document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现情谊林";
+        document.getElementById("graph-heading").textContent = "全部人物情谊图谱";
+        document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现全员图谱";
+        document.getElementById("random-pair").disabled = true;
         canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">✦</div><h3>还没有人物资料</h3><p>网站管理员可以登录管理页面，添加人物和关系。</p><a class="empty-hint" href="admin.html">打开管理页面</a></div>`;
         return;
       }
 
-      const center = peopleById.get(selectedId) || people[0];
-      if (!center) return;
-      document.getElementById("graph-heading").textContent = `${center.name}的情谊林`;
-      const connected = relationships.filter(edge => String(edge.from_id) === String(center.id) || String(edge.to_id) === String(center.id));
-      document.getElementById("graph-subtitle").textContent = connected.length ? `与 ${connected.length} 段情谊相连` : "暂时没有记录相关情谊";
+      document.getElementById("random-pair").disabled = people.length < 2;
+      document.getElementById("graph-heading").textContent = "全部人物情谊图谱";
+      const connectedPeople = new Set(relationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
+      document.getElementById("graph-subtitle").textContent = `${people.length} 位侠友 · ${relationships.length} 段情谊`;
 
-      const width = Math.max(canvas.clientWidth, 480);
-      const height = Math.max(canvas.clientHeight, 420);
+      const width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + people.length * 26));
+      const height = Math.max(490, Math.min(1450, 400 + Math.sqrt(people.length) * 120));
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-      svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", `${center.name}的情谊林`);
-      const cx = width / 2, cy = height / 2;
-      const neighborMap = new Map();
-      connected.forEach(edge => {
-        const forward = String(edge.from_id) === String(center.id);
-        const otherId = forward ? String(edge.to_id) : String(edge.from_id);
-        const other = peopleById.get(otherId);
-        const label = forward ? edge.label_from : (edge.label_to || edge.label_from);
-        if (other) neighborMap.set(otherId, { person: other, label: label || "相关" });
-      });
-      const neighbors = Array.from(neighborMap.values());
-      const radius = Math.min(width, height) * .32;
-      const centerNode = { x: cx, y: cy, person: center, center: true };
-      const nodes = [centerNode, ...neighbors.map((item, index) => {
-        const angle = -Math.PI / 2 + (2 * Math.PI * index / Math.max(neighbors.length, 1));
-        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius, person: item.person, label: item.label };
-      })];
+      svg.classList.add("graph-svg");
+      svg.setAttribute("role", "group");
+      svg.setAttribute("aria-label", "包含全部人物的情谊图谱，可选择两人查看关系");
 
-      neighbors.forEach((item, index) => {
-        const node = nodes[index + 1];
+      const n = people.length;
+      const positions = people.map((person, index) => {
+        const angle = index * 2.399963229728653;
+        const radius = 30 + Math.sqrt(index + 1) * Math.min(width, height) * .24;
+        return { x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius };
+      });
+      const indexById = new Map(people.map((person, index) => [String(person.id), index]));
+      const validEdges = relationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
+      const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
+      const padding = 80;
+      for (let step = 0; step < 150; step += 1) {
+        const forces = positions.map(() => ({ x: 0, y: 0 }));
+        for (let i = 0; i < n; i += 1) {
+          for (let j = i + 1; j < n; j += 1) {
+            let dx = positions[j].x - positions[i].x;
+            let dy = positions[j].y - positions[i].y;
+            const distance2 = Math.max(dx * dx + dy * dy, 100);
+            const distance = Math.sqrt(distance2);
+            const force = Math.min(2600 / distance2, 2.2);
+            dx /= distance; dy /= distance;
+            forces[i].x -= dx * force; forces[i].y -= dy * force;
+            forces[j].x += dx * force; forces[j].y += dy * force;
+          }
+        }
+        linkedPairs.forEach(([a, b]) => {
+          const dx = positions[b].x - positions[a].x, dy = positions[b].y - positions[a].y;
+          const distance = Math.max(Math.hypot(dx, dy), 1);
+          const force = (distance - 150) * .008;
+          forces[a].x += dx / distance * force; forces[a].y += dy / distance * force;
+          forces[b].x -= dx / distance * force; forces[b].y -= dy / distance * force;
+        });
+        const cooling = .65 * (1 - step / 180);
+        positions.forEach((point, index) => {
+          point.x += (forces[index].x + (width / 2 - point.x) * .002) * cooling;
+          point.y += (forces[index].y + (height / 2 - point.y) * .002) * cooling;
+          point.x = Math.max(padding, Math.min(width - padding, point.x));
+          point.y = Math.max(padding, Math.min(height - padding, point.y));
+        });
+      }
+
+      validEdges.forEach(edge => {
+        const fromIndex = indexById.get(String(edge.from_id));
+        const toIndex = indexById.get(String(edge.to_id));
+        const from = positions[fromIndex], to = positions[toIndex];
+        const kind = relationshipKind(edge);
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", cx); line.setAttribute("y1", cy);
-        line.setAttribute("x2", node.x); line.setAttribute("y2", node.y);
+        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
+        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
         line.setAttribute("class", "edge");
+        line.style.setProperty("--edge-color", kindColors[kind]);
         svg.appendChild(line);
-        const mx = (cx + node.x) / 2, my = (cy + node.y) / 2;
-        const labelWidth = Math.max(40, (item.label || "相关").length * 13 + 18);
+        const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+        const label = kind === "其他" ? (edge.label_from || "其他") : kind;
+        const labelWidth = Math.max(42, Array.from(label).length * 13 + 18);
         const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
         bg.setAttribute("width", labelWidth); bg.setAttribute("height", 22);
         bg.setAttribute("rx", 11); bg.setAttribute("class", "edge-label-bg");
+        bg.style.setProperty("--edge-color", kindColors[kind]);
         svg.appendChild(bg);
-        addSvgText(svg, mx, my + 1, item.label || "相关", "edge-label");
+        addSvgText(svg, mx, my + 1, label, "edge-label");
       });
 
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
       svg.appendChild(defs);
-      nodes.forEach(node => {
+      people.forEach((person, index) => {
+        const point = positions[index];
+        const personId = String(person.id);
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        const hasAvatar = Boolean(node.person.avatar_path);
-        group.setAttribute("class", `node${node.center ? " center" : ""}${hasAvatar ? " avatar-node" : ""}`);
-        group.setAttribute("transform", `translate(${node.x}, ${node.y})`);
-        if (!node.center) {
-          group.setAttribute("tabindex", "0");
-          group.setAttribute("role", "button");
-          group.setAttribute("aria-label", `查看${node.person.name}的关系`);
-          group.addEventListener("click", () => { selectedId = String(node.person.id); renderList(); renderGraph(); });
-          group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); group.click(); } });
-        }
+        const selectionClass = pairIds[0] === personId ? " selected-first" : pairIds[1] === personId ? " selected-second" : "";
+        group.setAttribute("class", `node${selectionClass}`);
+        group.setAttribute("transform", `translate(${point.x}, ${point.y})`);
+        group.setAttribute("tabindex", "0");
+        group.setAttribute("role", "button");
+        group.setAttribute("aria-label", `选择${person.name || "未命名"}`);
+        group.addEventListener("click", () => choosePerson(person.id));
+        group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); group.click(); } });
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        circle.setAttribute("r", node.center ? "39" : "33");
+        circle.setAttribute("r", connectedPeople.has(personId) ? "25" : "21");
+        circle.setAttribute("class", "node-ring");
         group.appendChild(circle);
-        if (hasAvatar) {
-          const photoRadius = node.center ? 31 : 27;
-          const clipId = `avatar-clip-${String(node.person.id).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+        if (person.avatar_path) {
+          const photoRadius = connectedPeople.has(personId) ? 21 : 17;
+          const clipId = `avatar-clip-${index}`;
           const clip = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
           clip.setAttribute("id", clipId);
           const clipCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -296,35 +421,48 @@
           image.setAttribute("y", -photoRadius);
           image.setAttribute("width", photoRadius * 2);
           image.setAttribute("height", photoRadius * 2);
-          image.setAttribute("href", avatarPublicUrl(node.person.avatar_path));
+          image.setAttribute("href", avatarPublicUrl(person.avatar_path));
           image.setAttribute("preserveAspectRatio", "xMidYMid slice");
           image.setAttribute("clip-path", `url(#${clipId})`);
           group.appendChild(image);
-          const label = node.person.name || "未命名";
-          const labelWidth = Math.min(120, Math.max(42, Array.from(label).length * 11 + 14));
-          const labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-          labelBg.setAttribute("x", -labelWidth / 2);
-          labelBg.setAttribute("y", 39);
-          labelBg.setAttribute("width", labelWidth);
-          labelBg.setAttribute("height", 20);
-          labelBg.setAttribute("rx", 10);
-          labelBg.setAttribute("class", "node-label-bg");
-          group.appendChild(labelBg);
-          const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          labelText.setAttribute("y", 49);
-          labelText.textContent = label;
-          group.appendChild(labelText);
         } else {
           const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.textContent = node.person.name || "未命名";
+          text.setAttribute("class", "node-initial");
+          text.textContent = initials(person.name);
           group.appendChild(text);
         }
+        const name = person.name || "未命名";
+        const labelWidth = Math.min(132, Math.max(46, Array.from(name).length * 12 + 16));
+        const labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        labelBg.setAttribute("x", -labelWidth / 2);
+        labelBg.setAttribute("y", 28);
+        labelBg.setAttribute("width", labelWidth);
+        labelBg.setAttribute("height", 20);
+        labelBg.setAttribute("rx", 10);
+        labelBg.setAttribute("class", "node-label-bg");
+        group.appendChild(labelBg);
+        const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        labelText.setAttribute("class", "node-name");
+        labelText.setAttribute("y", 38);
+        labelText.textContent = name;
+        group.appendChild(labelText);
         svg.appendChild(group);
       });
       canvas.appendChild(svg);
     }
 
     search.addEventListener("input", renderList);
+    document.getElementById("random-pair").addEventListener("click", () => {
+      if (people.length < 2) return;
+      const firstIndex = Math.floor(Math.random() * people.length);
+      let secondIndex = Math.floor(Math.random() * (people.length - 1));
+      if (secondIndex >= firstIndex) secondIndex += 1;
+      pairIds = [String(people[firstIndex].id), String(people[secondIndex].id)];
+      describePair(); renderList(); renderGraph();
+    });
+    document.getElementById("clear-pair").addEventListener("click", () => {
+      pairIds = []; describePair(); renderList(); renderGraph();
+    });
 
     async function loadData() {
       if (!connectDatabase()) {
@@ -336,18 +474,22 @@
       try {
         let [peopleResult, relationshipResult] = await Promise.all([
           database.from("people").select("id,name,description,avatar_path").order("name"),
-          database.from("relationships").select("id,from_id,to_id,label_from,label_to")
+          database.from("relationships").select("id,from_id,to_id,label_from,label_to,kind")
         ]);
         if (peopleResult.error) {
           peopleResult = await database.from("people").select("id,name,description").order("name");
         }
         if (peopleResult.error) throw peopleResult.error;
+        if (relationshipResult.error) {
+          relationshipResult = await database.from("relationships").select("id,from_id,to_id,label_from,label_to");
+        }
         if (relationshipResult.error) throw relationshipResult.error;
         people.push(...(peopleResult.data || []));
         relationships = relationshipResult.data || [];
         peopleById = new Map(people.map(person => [String(person.id), person]));
-        selectedId = people.length ? String(people[0].id) : "";
+        pairIds = [];
         document.getElementById("count").textContent = `共收录 ${people.length} 人`;
+        describePair();
         renderList();
         renderGraph();
       } catch (error) {

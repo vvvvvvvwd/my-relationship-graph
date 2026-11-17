@@ -15,6 +15,7 @@ create table if not exists public.relationships (
   to_id uuid not null references public.people(id) on delete cascade,
   label_from text not null,
   label_to text not null default '',
+  kind text not null default '其他',
   created_at timestamptz not null default now(),
   constraint relationships_people_must_differ check (from_id <> to_id)
 );
