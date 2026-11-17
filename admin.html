@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f6f4ef">
+  <meta name="theme-color" content="#eaf3e5">
   <title>管理人物关系图</title>
   <style>
-    :root { color-scheme: light; --paper:#f6f4ef; --card:#fffefa; --ink:#25332f; --muted:#727d77; --line:#e5e4dc; --green:#347566; --green-soft:#e5f0eb; --red:#a3443c; --shadow:0 16px 45px rgba(39,54,47,.08); }
+    :root { color-scheme: light; --paper:#edf4e8; --card:rgba(250,255,248,.92); --ink:#26372c; --muted:#6d7c70; --line:#d8e6d5; --green:#4d7955; --green-soft:#e3efde; --red:#a3443c; --shadow:0 16px 45px rgba(39,68,45,.11); }
     * { box-sizing:border-box; }
-    body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+    body { margin:0; background:linear-gradient(rgba(232,243,226,.76),rgba(228,240,222,.82)),url("background-photo.jpg") center/cover fixed; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
     button,input,select { font:inherit; }
     .page { width:min(920px,calc(100% - 32px)); margin:0 auto; padding:32px 0 52px; }
     header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
@@ -17,7 +17,7 @@
     h2 { margin:0; font-family:Georgia,"Songti SC",serif; font-size:19px; }
     p { color:var(--muted); font-size:13px; line-height:1.7; }
     a { color:var(--green); text-decoration:none; font-size:13px; }
-    .card { margin:14px 0; padding:22px; border:1px solid var(--line); border-radius:18px; background:var(--card); box-shadow:var(--shadow); }
+    .card { margin:14px 0; padding:22px; border:1px solid var(--line); border-radius:18px; background:var(--card); box-shadow:var(--shadow); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
     .card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
     .card-heading p { margin:5px 0 0; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
