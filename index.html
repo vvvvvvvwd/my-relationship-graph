@@ -168,7 +168,7 @@
             </label>
           </div>
         </div>
-        <div class="pair-result" id="pair-result" aria-live="polite">手机按住头像拖动，电脑按住拖动；点击两位侠友看称呼，也可用颜色筛选关系。</div>
+        <div class="pair-result" id="pair-result" aria-live="polite">手机按住头像轻轻移动即可拖动，连线会跟着调整；电脑按住拖动，也可用颜色筛选关系。</div>
         <div class="legend" aria-label="关系颜色筛选">
           <button class="legend-item legend-toggle" data-kind="师徒" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒 <span class="legend-count"></span></button>
           <button class="legend-item legend-toggle" data-kind="结义" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#b98645"></i>结义 <span class="legend-count"></span></button>
@@ -939,14 +939,17 @@
         const matrix = svg.getScreenCTM();
         if (!matrix) return;
         const graphPoint = point.matrixTransform(matrix.inverse());
-        const dragThreshold = activeDrag.pointerType === "touch" ? 9 : 4;
+        const touchDrag = activeDrag.pointerType === "touch";
+        const dragThreshold = touchDrag ? 5 : 4;
         if (!activeDrag.moved && Math.hypot(event.clientX - activeDrag.startX, event.clientY - activeDrag.startY) > dragThreshold) activeDrag.moved = true;
         if (!activeDrag.moved) return;
         const dragged = positions[activeDrag.index];
         dragged.x = Math.max(padding, Math.min(width - padding, graphPoint.x + activeDrag.offsetX));
         dragged.y = Math.max(padding, Math.min(height - padding, graphPoint.y + activeDrag.offsetY));
-        moveNearbyPeople(activeDrag.index);
-        separateCrossingLines(activeDrag.index);
+        if (!touchDrag) {
+          moveNearbyPeople(activeDrag.index);
+          separateCrossingLines(activeDrag.index);
+        }
         updateGraphVisuals();
         event.preventDefault();
       });
