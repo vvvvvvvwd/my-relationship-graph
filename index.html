@@ -451,7 +451,7 @@
           const focused = peopleById.get(focusedPersonId);
           result.innerHTML = `正在查看 <strong>${escapeHtml(focused?.name || "这位侠友")}</strong> 的情谊林；点“显示总图谱”返回全员图谱。`;
         } else {
-          result.textContent = "拖动头像调整位置；点击两位侠友查看称呼，也可筛选关系类型。";
+          result.textContent = "手机按住头像轻轻移动即可拖动，连线会跟着调整；电脑按住拖动，也可用颜色筛选关系。";
         }
         return;
       }
