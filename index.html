@@ -493,8 +493,80 @@
       }
       const connectedPeople = new Set(displayedRelationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
 
-      const width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + graphPeople.length * 26));
-      const height = Math.max(490, Math.min(1450, 400 + Math.sqrt(graphPeople.length) * 120));
+      let width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + graphPeople.length * 26));
+      let height = Math.max(490, Math.min(1450, 400 + Math.sqrt(graphPeople.length) * 120));
+      const n = graphPeople.length;
+      const indexById = new Map(graphPeople.map((person, index) => [String(person.id), index]));
+      const validEdges = displayedRelationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
+      const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
+      let forestPositions = null;
+      if (!isPersonGraph) {
+        const adjacency = Array.from({ length: n }, () => new Set());
+        linkedPairs.forEach(([a, b]) => { if (a !== b) { adjacency[a].add(b); adjacency[b].add(a); } });
+        const visited = new Set();
+        const components = [];
+        let isForest = true;
+        for (let start = 0; start < n; start += 1) {
+          if (visited.has(start)) continue;
+          const parent = new Map([[start, -1]]);
+          const order = [start];
+          visited.add(start);
+          for (let cursor = 0; cursor < order.length; cursor += 1) {
+            const current = order[cursor];
+            adjacency[current].forEach(next => {
+              if (!visited.has(next)) {
+                visited.add(next); parent.set(next, current); order.push(next);
+              } else if (parent.get(current) !== next) {
+                isForest = false;
+              }
+            });
+          }
+          const children = new Map(order.map(node => [node, []]));
+          order.forEach(node => {
+            const p = parent.get(node);
+            if (p >= 0) children.get(p).push(node);
+          });
+          const leafCounts = new Map();
+          const depths = new Map([[start, 0]]);
+          for (let cursor = 0; cursor < order.length; cursor += 1) {
+            const node = order[cursor];
+            children.get(node).forEach(child => depths.set(child, depths.get(node) + 1));
+          }
+          for (let cursor = order.length - 1; cursor >= 0; cursor -= 1) {
+            const node = order[cursor];
+            const kids = children.get(node);
+            leafCounts.set(node, kids.length ? kids.reduce((sum, child) => sum + leafCounts.get(child), 0) : 1);
+          }
+          components.push({ root: start, children, leafCounts, depths, width: (leafCounts.get(start) - 1) * 150 + 100, height: Math.max(...order.map(node => depths.get(node))) * 145 + 100 });
+        }
+        if (isForest) {
+          const largestWidth = Math.max(...components.map(component => component.width));
+          const packingWidth = Math.max(1200, canvas.clientWidth + 200, largestWidth + 100);
+          components.sort((a, b) => b.height - a.height || b.width - a.width);
+          forestPositions = Array.from({ length: n }, () => ({ x: 0, y: 0 }));
+          let x = 60, y = 60, rowHeight = 0;
+          components.forEach(component => {
+            if (x > 60 && x + component.width > packingWidth - 40) {
+              x = 60; y += rowHeight + 100; rowHeight = 0;
+            }
+            let leafCursor = 0;
+            const place = (node, depth) => {
+              const kids = component.children.get(node);
+              const childXs = kids.map(child => place(child, depth + 1));
+              const nodeX = childXs.length
+                ? childXs.reduce((sum, childX) => sum + childX, 0) / childXs.length
+                : x + 50 + leafCursor++ * 150;
+              forestPositions[node] = { x: nodeX, y: y + 50 + depth * 145 };
+              return nodeX;
+            };
+            place(component.root, 0);
+            x += component.width + 70;
+            rowHeight = Math.max(rowHeight, component.height);
+          });
+          width = Math.max(canvas.clientWidth, packingWidth);
+          height = Math.max(490, y + rowHeight + 60);
+        }
+      }
       const fitScale = canvas.clientWidth < 760 ? 1 : Math.min(1, canvas.clientWidth / width);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -506,9 +578,8 @@
       svg.setAttribute("role", "group");
       svg.setAttribute("aria-label", isPersonGraph ? `${center?.name || "侠友"}的情谊林` : "总情谊图谱，可选择两人查看关系");
 
-      const n = graphPeople.length;
       const cx = width / 2, cy = height / 2;
-      const positions = graphPeople.map((person, index) => {
+      const positions = forestPositions || graphPeople.map((person, index) => {
         if (isPersonGraph && index === 0) return { x: cx, y: cy };
         if (isPersonGraph) {
           const angle = -Math.PI / 2 + 2 * Math.PI * (index - 1) / Math.max(n - 1, 1);
@@ -519,11 +590,8 @@
         const radius = 30 + Math.sqrt(index + 1) * Math.min(width, height) * .24;
         return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
       });
-      const indexById = new Map(graphPeople.map((person, index) => [String(person.id), index]));
-      const validEdges = displayedRelationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
-      const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
       const padding = 80;
-      for (let step = 0; !isPersonGraph && step < 220; step += 1) {
+      for (let step = 0; !isPersonGraph && !forestPositions && step < 520; step += 1) {
         const forces = positions.map(() => ({ x: 0, y: 0 }));
         for (let i = 0; i < n; i += 1) {
           for (let j = i + 1; j < n; j += 1) {
@@ -549,7 +617,7 @@
             if (node === a || node === b) continue;
             const point = positions[node];
             const projection = projectToSegment(point, positions[a], positions[b]);
-            if (projection.distance >= 58) continue;
+            if (projection.distance >= 72) continue;
             let dx = point.x - projection.x, dy = point.y - projection.y;
             let distance = projection.distance;
             if (distance < .001) {
@@ -561,13 +629,13 @@
             } else {
               dx /= distance; dy /= distance;
             }
-            const force = Math.min(4, (58 - projection.distance) * .09);
+            const force = Math.min(8, (72 - projection.distance) * .15);
             forces[node].x += dx * force;
             forces[node].y += dy * force;
-            forces[a].x -= dx * force * (1 - projection.t) * .45;
-            forces[a].y -= dy * force * (1 - projection.t) * .45;
-            forces[b].x -= dx * force * projection.t * .45;
-            forces[b].y -= dy * force * projection.t * .45;
+            forces[a].x -= dx * force * (1 - projection.t) * .55;
+            forces[a].y -= dy * force * (1 - projection.t) * .55;
+            forces[b].x -= dx * force * projection.t * .55;
+            forces[b].y -= dy * force * projection.t * .55;
           }
         });
         for (let firstEdge = 0; firstEdge < linkedPairs.length; firstEdge += 1) {
@@ -586,7 +654,7 @@
             const secondMidY = (positions[c].y + positions[d].y) / 2;
             const side = (secondMidX - firstMidX) * normalX + (secondMidY - firstMidY) * normalY;
             const sign = Math.abs(side) < .001 ? ((firstEdge + secondEdge) % 2 ? 1 : -1) : side > 0 ? 1 : -1;
-            const force = 2.8;
+            const force = 16;
             const pushFirstX = -normalX * sign * force;
             const pushFirstY = -normalY * sign * force;
             const pushSecondX = normalX * sign * force;
