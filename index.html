@@ -38,13 +38,13 @@
     .search { width: 100%; height: 46px; border: 1px solid var(--line); border-radius: 13px; outline: none; background: var(--card); padding: 0 14px 0 43px; color: var(--ink); box-shadow: 0 3px 10px rgba(39,54,47,.025); }
     .search:focus { border-color: #79a99b; box-shadow: 0 0 0 3px rgba(52,117,102,.11); }
     .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
-    .layout { display: grid; grid-template-columns: 285px minmax(0, 1fr); gap: 16px; align-items: stretch; }
+    .layout { display: grid; grid-template-columns: 285px minmax(0, 1fr); gap: 16px; align-items: start; }
     .panel { border: 1px solid var(--line); border-radius: 19px; background: var(--card); box-shadow: var(--shadow); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-    .roster { min-height: 565px; overflow: hidden; }
+    .roster { align-self: start; max-height: calc(100vh - 40px); overflow: hidden; position: sticky; top: 20px; }
     .panel-head { padding: 20px 20px 15px; border-bottom: 1px solid #efeee8; }
     .panel-head h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 650; }
     .panel-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
-    .people { padding: 10px; max-height: 480px; overflow: auto; }
+    .people { padding: 10px; max-height: min(70vh, 650px); overflow: auto; }
     .person-button { width: 100%; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: left; cursor: pointer; }
     .person-button:hover { background: #f5f5f0; }
     .person-button[aria-pressed="true"] { background: var(--green-soft); }
@@ -57,10 +57,13 @@
     .person-sub { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; }
     .graph-panel { min-height: 565px; display: flex; flex-direction: column; overflow: hidden; }
     .graph-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; border-bottom: 1px solid #efeee8; }
-    .graph-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+    .graph-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
     .graph-button { min-height:36px; padding:0 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--green); font-size:12px; font-weight:650; cursor:pointer; }
     .graph-button.primary { border-color:var(--green); background:var(--green); color:#fff; }
     .graph-button:disabled { opacity:.5; cursor:not-allowed; }
+    .zoom-control { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:11px; font-weight:650; white-space:nowrap; }
+    .zoom-control input { width:104px; height:22px; margin:0; accent-color:var(--green); cursor:pointer; }
+    .zoom-value { min-width:36px; color:var(--green); text-align:right; }
     .graph-top h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 650; }
     .graph-top p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
     .graph-badge { color: #53786d; background: #eef5f1; border-radius: 20px; padding: 7px 10px; font-size: 11px; white-space: nowrap; }
@@ -70,8 +73,8 @@
     .legend-item { display:inline-flex; align-items:center; gap:6px; }
     .legend-dot { width:9px; height:9px; border-radius:50%; background:var(--kind-color); }
     .canvas { position: relative; display: block; min-height: 490px; flex: 1; overflow:auto; background-image: linear-gradient(rgba(236, 245, 231, .68), rgba(236, 245, 231, .68)), radial-gradient(#d5e4d2 1px, transparent 1px); background-size: auto, 21px 21px; }
-    svg.graph-svg { display:block; width:100%; height:auto; min-height:490px; overflow:visible; }
-    .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2; opacity:.82; }
+    svg.graph-svg { display:block; width:100%; height:auto; min-height:0; overflow:visible; }
+    .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
     .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
     .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
     .node { cursor:pointer; outline:none; }
@@ -98,7 +101,7 @@
       .search-wrap { max-width: none; }
       .count { padding-left: 2px; }
       .layout { grid-template-columns: 1fr; }
-      .roster { min-height: auto; }
+      .roster { min-height:auto; max-height:none; position:static; }
       .people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 250px; }
       .person-button { min-width: 0; }
       .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -108,7 +111,7 @@
       .pair-result { padding:11px 16px; }
       .legend { padding:10px 16px 0; }
       .canvas { min-height:370px; }
-      svg.graph-svg { min-width:760px; min-height:370px; }
+      svg.graph-svg { min-height:0; }
     }
   </style>
 </head>
@@ -150,6 +153,10 @@
           <div class="graph-actions">
             <button class="graph-button primary" id="random-pair" type="button">随机选两位</button>
             <button class="graph-button" id="clear-pair" type="button">显示总图谱</button>
+            <label class="zoom-control" for="graph-zoom">图谱大小
+              <input id="graph-zoom" type="range" min="50" max="200" step="5" value="100" aria-label="调整图谱大小">
+              <output class="zoom-value" id="graph-zoom-value" for="graph-zoom">100%</output>
+            </label>
           </div>
         </div>
         <div class="pair-result" id="pair-result" aria-live="polite">在图谱里点两位侠友，查看他们之间的情谊称呼。</div>
@@ -183,6 +190,8 @@
     let pairIds = [];
     let focusedPersonId = "";
     let graphMode = "total";
+    let graphZoom = 1;
+    let graphResizeTimer = null;
     let database = null;
 
     document.title = site.title || "一起来玩燕子";
@@ -252,7 +261,12 @@
 
     const kindColors = { "师徒": "#718fae", "结义": "#b98645", "侠缘": "#b76a74", "其他": "#82957f" };
     function relationshipKind(edge) {
-      return ["师徒", "结义", "侠缘"].includes(edge.kind) ? edge.kind : "其他";
+      if (["师徒", "结义", "侠缘"].includes(edge.kind)) return edge.kind;
+      const labels = `${edge.label_from || ""} ${edge.label_to || ""}`;
+      if (/(师傅|师父|师尊|恩师|师长|徒弟|徒儿|弟子|门下|师兄|师姐|师弟|师妹|师伯|师叔|师姑|师祖)/.test(labels)) return "师徒";
+      if (/(结义|义兄|义弟|义姐|义妹)/.test(labels)) return "结义";
+      if (/(侠缘|情缘)/.test(labels)) return "侠缘";
+      return "其他";
     }
     function edgeForPair(firstId, secondId) {
       return relationships.filter(edge =>
@@ -274,10 +288,13 @@
         }
         const fromCallsTo = String(edge.label_from || "");
         const toCallsFrom = String(edge.label_to || "");
-        if (teacherWords.test(fromCallsTo)) add(edge.to_id, edge.from_id);
-        else if (studentWords.test(fromCallsTo)) add(edge.from_id, edge.to_id);
-        if (teacherWords.test(toCallsFrom)) add(edge.from_id, edge.to_id);
-        else if (studentWords.test(toCallsFrom)) add(edge.to_id, edge.from_id);
+        const directions = [];
+        if (teacherWords.test(fromCallsTo)) directions.push([edge.to_id, edge.from_id]);
+        else if (studentWords.test(fromCallsTo)) directions.push([edge.from_id, edge.to_id]);
+        if (teacherWords.test(toCallsFrom)) directions.push([edge.from_id, edge.to_id]);
+        else if (studentWords.test(toCallsFrom)) directions.push([edge.to_id, edge.from_id]);
+        const uniqueDirections = [...new Map(directions.map(([masterId, studentId]) => [`${masterId}:${studentId}`, [masterId, studentId]])).values()];
+        if (uniqueDirections.length === 1) add(uniqueDirections[0][0], uniqueDirections[0][1]);
       });
       return [...new Map(teachers.map(edge => [`${edge.masterId}:${edge.studentId}`, edge])).values()];
     }
@@ -377,9 +394,19 @@
       const descriptions = found.map(edge => {
         const kind = relationshipKind(edge);
         if (kind === "师徒") {
-          const master = peopleById.get(String(edge.from_id));
-          const disciple = peopleById.get(String(edge.to_id));
-          return `${escapeHtml(master?.name || "人物")} 是师傅，${escapeHtml(disciple?.name || "人物")} 是徒弟`;
+          const ids = [String(edge.from_id), String(edge.to_id)];
+          const lineage = teacherEdges().find(item => ids.includes(item.masterId) && ids.includes(item.studentId));
+          if (lineage) {
+            const master = peopleById.get(lineage.masterId);
+            const disciple = peopleById.get(lineage.studentId);
+            return `${escapeHtml(master?.name || "人物")} 是师傅，${escapeHtml(disciple?.name || "人物")} 是徒弟`;
+          }
+          const fromName = peopleById.get(String(edge.from_id))?.name || "人物 A";
+          const toName = peopleById.get(String(edge.to_id))?.name || "人物 B";
+          const labels = [];
+          if (edge.label_from) labels.push(`${escapeHtml(fromName)} 称 ${escapeHtml(toName)} 为“${escapeHtml(edge.label_from)}”`);
+          if (edge.label_to) labels.push(`${escapeHtml(toName)} 称 ${escapeHtml(fromName)} 为“${escapeHtml(edge.label_to)}”`);
+          return labels.join("；") || "师门情谊";
         }
         if (kind === "其他") {
           const fromName = peopleById.get(String(edge.from_id))?.name || "人物 A";
@@ -449,8 +476,13 @@
 
       const width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + graphPeople.length * 26));
       const height = Math.max(490, Math.min(1450, 400 + Math.sqrt(graphPeople.length) * 120));
+      const fitScale = canvas.clientWidth < 760 ? 1 : Math.min(1, canvas.clientWidth / width);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.dataset.baseWidth = String(width * fitScale);
+      svg.dataset.baseHeight = String(height * fitScale);
+      svg.style.width = `${width * fitScale * graphZoom}px`;
+      svg.style.height = `${height * fitScale * graphZoom}px`;
       svg.classList.add("graph-svg");
       svg.setAttribute("role", "group");
       svg.setAttribute("aria-label", isPersonGraph ? `${center?.name || "侠友"}的情谊林` : "总情谊图谱，可选择两人查看关系");
@@ -514,7 +546,7 @@
         line.style.setProperty("--edge-color", kindColors[kind]);
         svg.appendChild(line);
         const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
-        const label = kind === "其他" ? (edge.label_from || "其他") : kind;
+        const label = ["师徒", "结义", "侠缘"].includes(edge.kind) ? kind : (edge.label_from || kind);
         const labelWidth = Math.max(42, Array.from(label).length * 13 + 18);
         const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
@@ -587,6 +619,19 @@
       canvas.appendChild(svg);
     }
 
+    document.getElementById("graph-zoom").addEventListener("input", event => {
+      graphZoom = Number(event.currentTarget.value) / 100;
+      document.getElementById("graph-zoom-value").textContent = `${event.currentTarget.value}%`;
+      const svg = canvas.querySelector("svg.graph-svg");
+      if (svg) {
+        svg.style.width = `${Number(svg.dataset.baseWidth) * graphZoom}px`;
+        svg.style.height = `${Number(svg.dataset.baseHeight) * graphZoom}px`;
+      }
+    });
+    window.addEventListener("resize", () => {
+      clearTimeout(graphResizeTimer);
+      graphResizeTimer = setTimeout(renderGraph, 120);
+    });
     search.addEventListener("input", renderList);
     document.getElementById("random-pair").addEventListener("click", () => {
       if (people.length < 2) return;
