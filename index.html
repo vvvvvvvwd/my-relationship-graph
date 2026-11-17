@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f4ef">
+  <title>我的人物关系图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f6f4ef;
+      --card: #fffefa;
+      --ink: #25332f;
+      --muted: #727d77;
+      --line: #e5e4dc;
+      --green: #347566;
+      --green-soft: #e5f0eb;
+      --gold: #b98645;
+      --shadow: 0 16px 45px rgba(39, 54, 47, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    .page { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 52px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 26px; }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: var(--green); color: white; font-size: 20px; box-shadow: 0 7px 18px rgba(52,117,102,.2); }
+    .eyebrow { color: var(--green); font-size: 11px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 3px 0 0; font-family: Georgia, "Songti SC", serif; font-size: clamp(23px, 4vw, 30px); font-weight: 650; letter-spacing: .02em; }
+    .private-note { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 7px; }
+    .private-note span { color: var(--green); font-size: 14px; }
+    .intro { margin-bottom: 22px; }
+    .intro p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .search-wrap { position: relative; flex: 1; max-width: 420px; }
+    .search-icon { position: absolute; top: 50%; left: 15px; transform: translateY(-50%); color: #87918a; }
+    .search { width: 100%; height: 46px; border: 1px solid var(--line); border-radius: 13px; outline: none; background: var(--card); padding: 0 14px 0 43px; color: var(--ink); box-shadow: 0 3px 10px rgba(39,54,47,.025); }
+    .search:focus { border-color: #79a99b; box-shadow: 0 0 0 3px rgba(52,117,102,.11); }
+    .count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .layout { display: grid; grid-template-columns: 285px minmax(0, 1fr); gap: 16px; align-items: stretch; }
+    .panel { border: 1px solid var(--line); border-radius: 19px; background: var(--card); box-shadow: var(--shadow); }
+    .roster { min-height: 565px; overflow: hidden; }
+    .panel-head { padding: 20px 20px 15px; border-bottom: 1px solid #efeee8; }
+    .panel-head h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 650; }
+    .panel-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .people { padding: 10px; max-height: 480px; overflow: auto; }
+    .person-button { width: 100%; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: left; cursor: pointer; }
+    .person-button:hover { background: #f5f5f0; }
+    .person-button[aria-pressed="true"] { background: var(--green-soft); }
+    .avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 50%; background: #e8e4d7; color: #555d50; font-size: 14px; font-weight: 700; }
+    .person-name { font-size: 14px; font-weight: 650; }
+    .person-sub { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; }
+    .graph-panel { min-height: 565px; display: flex; flex-direction: column; overflow: hidden; }
+    .graph-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; border-bottom: 1px solid #efeee8; }
+    .graph-top h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 18px; font-weight: 650; }
+    .graph-top p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .graph-badge { color: #53786d; background: #eef5f1; border-radius: 20px; padding: 7px 10px; font-size: 11px; white-space: nowrap; }
+    .canvas { position: relative; display: grid; min-height: 490px; flex: 1; place-items: center; overflow: hidden; background-image: radial-gradient(#dfe5dd 1px, transparent 1px); background-size: 21px 21px; }
+    svg { width: 100%; height: 100%; min-height: 490px; overflow: visible; }
+    .edge { stroke: #b7c4bc; stroke-width: 1.5; }
+    .edge-label-bg { fill: #fffefa; stroke: #e5e4dc; stroke-width: 1; }
+    .edge-label { fill: #56645c; font-size: 12px; text-anchor: middle; dominant-baseline: central; }
+    .node { cursor: pointer; }
+    .node circle { fill: #fffefa; stroke: #d6ded8; stroke-width: 1.5; filter: drop-shadow(0 5px 7px rgba(39,54,47,.09)); }
+    .node.center circle { fill: var(--green); stroke: var(--green); }
+    .node text { fill: var(--ink); font-size: 13px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+    .node.center text { fill: #fff; font-weight: 700; }
+    .empty-state { max-width: 380px; padding: 28px; text-align: center; }
+    .empty-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 19px; background: var(--green-soft); color: var(--green); font-size: 27px; }
+    .empty-state h3 { margin: 0 0 8px; font-family: Georgia, "Songti SC", serif; font-size: 21px; }
+    .empty-state p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .empty-hint { display: inline-block; margin-top: 15px; border-radius: 9px; background: #f5f2e9; padding: 8px 11px; color: #806943; font-size: 11px; }
+    footer { margin-top: 18px; color: #8b948e; font-size: 11px; text-align: center; }
+    footer a { margin-left: 9px; color: var(--green); text-decoration: none; }
+    @media (max-width: 760px) {
+      .page { width: min(100% - 24px, 560px); padding-top: 22px; }
+      header { align-items: flex-start; }
+      .private-note { max-width: 128px; text-align: right; line-height: 1.5; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .search-wrap { max-width: none; }
+      .count { padding-left: 2px; }
+      .layout { grid-template-columns: 1fr; }
+      .roster { min-height: auto; }
+      .people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 250px; }
+      .person-button { min-width: 0; }
+      .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .graph-panel { min-height: 430px; }
+      .canvas, svg { min-height: 370px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">关系</div>
+        <div>
+          <div class="eyebrow">PEOPLE & CONNECTIONS</div>
+          <h1 id="site-title">我的人物关系图</h1>
+        </div>
+      </div>
+      <div class="private-note"><span aria-hidden="true">●</span>只放你愿意公开的内容</div>
+    </header>
+
+    <section class="intro" aria-label="网站介绍">
+      <p>把重要的人放在一起，看看彼此之间的联系。</p>
+    </section>
+
+    <div class="toolbar">
+      <label class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input class="search" id="search" type="search" placeholder="输入名字查找" autocomplete="off" aria-label="输入名字查找">
+      </label>
+      <div class="count" id="count">正在整理名单…</div>
+    </div>
+
+    <section class="layout">
+      <aside class="panel roster" aria-label="人物名单">
+        <div class="panel-head">
+          <h2>人物名单</h2>
+          <p>选择一个人，看看相关关系</p>
+        </div>
+        <div class="people" id="people-list"></div>
+      </aside>
+
+      <section class="panel graph-panel" aria-label="关系图">
+        <div class="graph-top">
+          <div>
+            <h2 id="graph-heading">关系图</h2>
+            <p id="graph-subtitle">人物和关系会显示在这里</p>
+          </div>
+          <div class="graph-badge">人物关系</div>
+        </div>
+        <div class="canvas" id="canvas"></div>
+      </section>
+    </section>
+    <footer>整理重要关系，让每个人都一目了然。<a href="admin.html">管理入口</a></footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="site-data.js"></script>
+  <script>
+    const site = window.SITE_CONFIG || {};
+    const people = [];
+    let relationships = [];
+    let peopleById = new Map();
+    const list = document.getElementById("people-list");
+    const canvas = document.getElementById("canvas");
+    const search = document.getElementById("search");
+    let selectedId = "";
+    let database = null;
+
+    document.title = site.title || "我的人物关系图";
+    document.getElementById("site-title").textContent = site.title || "我的人物关系图";
+
+    function connectDatabase() {
+      if (!site.supabaseUrl || !site.supabasePublishableKey || !window.supabase) return false;
+      database = window.supabase.createClient(site.supabaseUrl, site.supabasePublishableKey);
+      return true;
+    }
+
+    function initials(name) {
+      return Array.from(name || "?")[0] || "?";
+    }
+
+    function renderList() {
+      const query = search.value.trim().toLowerCase();
+      const shown = people.filter(person => (person.name || "").toLowerCase().includes(query));
+      list.innerHTML = "";
+      if (!shown.length) {
+        list.innerHTML = `<p style="padding:12px;color:var(--muted);font-size:13px">${people.length ? "没有找到这个名字。" : "名单还没有填写。"}</p>`;
+        return;
+      }
+      shown.forEach(person => {
+        const button = document.createElement("button");
+        button.className = "person-button";
+        button.type = "button";
+        button.setAttribute("aria-pressed", String(String(person.id) === selectedId));
+        button.innerHTML = `<span class="avatar" aria-hidden="true"></span><span><span class="person-name"></span><span class="person-sub"></span></span>`;
+        button.querySelector(".avatar").textContent = initials(person.name);
+        button.querySelector(".person-name").textContent = person.name || "未命名";
+        button.querySelector(".person-sub").textContent = person.description || "点击查看关系";
+        button.addEventListener("click", () => {
+          selectedId = String(person.id);
+          renderList();
+          renderGraph();
+        });
+        list.appendChild(button);
+      });
+    }
+
+    function addSvgText(svg, x, y, text, className) {
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", x);
+      label.setAttribute("y", y);
+      label.setAttribute("class", className);
+      label.textContent = text;
+      svg.appendChild(label);
+    }
+
+    function renderGraph() {
+      canvas.innerHTML = "";
+      if (!people.length) {
+        document.getElementById("graph-heading").textContent = "关系图";
+        document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现关系图";
+        canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">✦</div><h3>还没有人物资料</h3><p>网站管理员可以登录管理页面，添加人物和关系。</p><a class="empty-hint" href="admin.html">打开管理页面</a></div>`;
+        return;
+      }
+
+      const center = peopleById.get(selectedId) || people[0];
+      if (!center) return;
+      document.getElementById("graph-heading").textContent = `${center.name}的关系图`;
+      const connected = relationships.filter(edge => String(edge.from_id) === String(center.id) || String(edge.to_id) === String(center.id));
+      document.getElementById("graph-subtitle").textContent = connected.length ? `与 ${connected.length} 条关系相连` : "暂时没有记录相关关系";
+
+      const width = Math.max(canvas.clientWidth, 480);
+      const height = Math.max(canvas.clientHeight, 420);
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", `${center.name}的人物关系图`);
+      const cx = width / 2, cy = height / 2;
+      const neighborMap = new Map();
+      connected.forEach(edge => {
+        const forward = String(edge.from_id) === String(center.id);
+        const otherId = forward ? String(edge.to_id) : String(edge.from_id);
+        const other = peopleById.get(otherId);
+        const label = forward ? edge.label_from : (edge.label_to || edge.label_from);
+        if (other) neighborMap.set(otherId, { person: other, label: label || "相关" });
+      });
+      const neighbors = Array.from(neighborMap.values());
+      const radius = Math.min(width, height) * .32;
+      const centerNode = { x: cx, y: cy, person: center, center: true };
+      const nodes = [centerNode, ...neighbors.map((item, index) => {
+        const angle = -Math.PI / 2 + (2 * Math.PI * index / Math.max(neighbors.length, 1));
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius, person: item.person, label: item.label };
+      })];
+
+      neighbors.forEach((item, index) => {
+        const node = nodes[index + 1];
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", cx); line.setAttribute("y1", cy);
+        line.setAttribute("x2", node.x); line.setAttribute("y2", node.y);
+        line.setAttribute("class", "edge");
+        svg.appendChild(line);
+        const mx = (cx + node.x) / 2, my = (cy + node.y) / 2;
+        const labelWidth = Math.max(40, (item.label || "相关").length * 13 + 18);
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
+        bg.setAttribute("width", labelWidth); bg.setAttribute("height", 22);
+        bg.setAttribute("rx", 11); bg.setAttribute("class", "edge-label-bg");
+        svg.appendChild(bg);
+        addSvgText(svg, mx, my + 1, item.label || "相关", "edge-label");
+      });
+
+      nodes.forEach(node => {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", `node${node.center ? " center" : ""}`);
+        group.setAttribute("transform", `translate(${node.x}, ${node.y})`);
+        if (!node.center) {
+          group.setAttribute("tabindex", "0");
+          group.setAttribute("role", "button");
+          group.setAttribute("aria-label", `查看${node.person.name}的关系`);
+          group.addEventListener("click", () => { selectedId = String(node.person.id); renderList(); renderGraph(); });
+          group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); group.click(); } });
+        }
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", node.center ? "39" : "33");
+        group.appendChild(circle);
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.textContent = node.person.name || "未命名";
+        group.appendChild(text);
+        svg.appendChild(group);
+      });
+      canvas.appendChild(svg);
+    }
+
+    search.addEventListener("input", renderList);
+
+    async function loadData() {
+      if (!connectDatabase()) {
+        document.getElementById("count").textContent = "网站还没有连接在线名单";
+        renderList();
+        renderGraph();
+        return;
+      }
+      try {
+        const [peopleResult, relationshipResult] = await Promise.all([
+          database.from("people").select("id,name,description").order("name"),
+          database.from("relationships").select("id,from_id,to_id,label_from,label_to")
+        ]);
+        if (peopleResult.error) throw peopleResult.error;
+        if (relationshipResult.error) throw relationshipResult.error;
+        people.push(...(peopleResult.data || []));
+        relationships = relationshipResult.data || [];
+        peopleById = new Map(people.map(person => [String(person.id), person]));
+        selectedId = people.length ? String(people[0].id) : "";
+        document.getElementById("count").textContent = `共收录 ${people.length} 人`;
+        renderList();
+        renderGraph();
+      } catch (error) {
+        document.getElementById("count").textContent = "暂时读不到名单";
+        document.getElementById("graph-heading").textContent = "关系图暂时打不开";
+        document.getElementById("graph-subtitle").textContent = "请联系网站管理员检查数据库设置";
+        canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">!</div><h3>暂时无法读取资料</h3><p>在线名单还没有连好，或数据库暂时没有响应。</p></div>`;
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

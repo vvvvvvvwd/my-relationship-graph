@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f4ef">
+  <title>管理人物关系图</title>
+  <style>
+    :root { color-scheme: light; --paper:#f6f4ef; --card:#fffefa; --ink:#25332f; --muted:#727d77; --line:#e5e4dc; --green:#347566; --green-soft:#e5f0eb; --red:#a3443c; --shadow:0 16px 45px rgba(39,54,47,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+    button,input,select { font:inherit; }
+    .page { width:min(920px,calc(100% - 32px)); margin:0 auto; padding:32px 0 52px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px; }
+    .eyebrow { color:var(--green); font-size:11px; font-weight:750; letter-spacing:.15em; }
+    h1 { margin:5px 0 0; font-family:Georgia,"Songti SC",serif; font-size:28px; }
+    h2 { margin:0; font-family:Georgia,"Songti SC",serif; font-size:19px; }
+    p { color:var(--muted); font-size:13px; line-height:1.7; }
+    a { color:var(--green); text-decoration:none; font-size:13px; }
+    .card { margin:14px 0; padding:22px; border:1px solid var(--line); border-radius:18px; background:var(--card); box-shadow:var(--shadow); }
+    .card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
+    .card-heading p { margin:5px 0 0; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    label { display:block; color:#52615a; font-size:12px; font-weight:650; }
+    input,select { width:100%; height:42px; margin-top:6px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); outline:none; }
+    input:focus,select:focus { border-color:#79a99b; box-shadow:0 0 0 3px rgba(52,117,102,.1); }
+    .actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; }
+    .button { min-height:38px; padding:0 14px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); cursor:pointer; }
+    .button.primary { border-color:var(--green); background:var(--green); color:white; }
+    .button.danger { color:var(--red); }
+    .button:disabled { opacity:.55; cursor:not-allowed; }
+    .status { min-height:20px; margin:8px 0 0; color:var(--muted); font-size:12px; }
+    .status.error { color:var(--red); }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #efeee8; }
+    .row-main { min-width:0; overflow-wrap:anywhere; font-size:13px; }
+    .row-note { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
+    .row-actions { display:flex; flex:0 0 auto; gap:6px; }
+    .row-actions .button { min-height:32px; padding:0 10px; font-size:12px; }
+    .empty { padding:10px 0; color:var(--muted); font-size:13px; }
+    .hidden { display:none !important; }
+    @media (max-width:620px) { .page{padding-top:22px}.card{padding:17px}.grid{grid-template-columns:1fr}.row{align-items:flex-start}.row-actions{flex-direction:column} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div><div class="eyebrow">网站管理</div><h1>管理人物关系图</h1></div>
+      <a href="index.html">回到关系图 →</a>
+    </header>
+
+    <section class="card" id="login-card">
+      <h2>管理员登录</h2>
+      <p>只有管理员可以修改名单。访客无需登录，只能查看关系图。</p>
+      <form id="login-form">
+        <div class="grid">
+          <label>管理员邮箱<input id="email" type="email" autocomplete="username" required></label>
+          <label>密码<input id="password" type="password" autocomplete="current-password" required></label>
+        </div>
+        <div class="actions"><button class="button primary" type="submit">登录</button></div>
+      </form>
+      <p class="status" id="login-status" role="status"></p>
+    </section>
+
+    <section id="manager" class="hidden">
+      <div class="card">
+        <div class="card-heading"><div><h2>人物</h2><p>添加新人物，或修改已经收录的人。</p></div><button class="button" id="logout" type="button">退出登录</button></div>
+        <form id="person-form">
+          <input id="person-id" type="hidden">
+          <div class="grid">
+            <label>名字<input id="person-name" maxlength="80" required placeholder="例如：小林"></label>
+            <label>简单介绍（可以不填）<input id="person-description" maxlength="180" placeholder="例如：大学同学"></label>
+          </div>
+          <div class="actions"><button class="button primary" id="person-save" type="submit">添加人物</button><button class="button hidden" id="person-cancel" type="button">取消修改</button></div>
+        </form>
+        <p class="status" id="person-status" role="status"></p>
+        <div id="people-rows"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-heading"><div><h2>关系</h2><p>选择两个人，写清楚他们彼此是什么关系。</p></div></div>
+        <form id="relationship-form">
+          <input id="relationship-id" type="hidden">
+          <div class="grid">
+            <label>人物 A<select id="from-person" required></select></label>
+            <label>人物 B<select id="to-person" required></select></label>
+            <label>A 对 B 的关系<input id="label-from" maxlength="60" required placeholder="例如：妈妈"></label>
+            <label>B 对 A 的关系<input id="label-to" maxlength="60" placeholder="例如：女儿（可以不填）"></label>
+          </div>
+          <div class="actions"><button class="button primary" id="relationship-save" type="submit">添加关系</button><button class="button hidden" id="relationship-cancel" type="button">取消修改</button></div>
+        </form>
+        <p class="status" id="relationship-status" role="status"></p>
+        <div id="relationship-rows"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="site-data.js"></script>
+  <script>
+    const config = window.SITE_CONFIG || {};
+    const loginCard = document.getElementById("login-card");
+    const manager = document.getElementById("manager");
+    const loginStatus = document.getElementById("login-status");
+    const peopleRows = document.getElementById("people-rows");
+    const relationshipRows = document.getElementById("relationship-rows");
+    let database = null;
+    let people = [];
+    let relationships = [];
+
+    function setStatus(element, message, isError = false) {
+      element.textContent = message || "";
+      element.classList.toggle("error", isError);
+    }
+
+    function ready() {
+      return Boolean(config.supabaseUrl && config.supabasePublishableKey && window.supabase);
+    }
+
+    function makeButton(label, className, onClick) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `button ${className || ""}`.trim();
+      button.textContent = label;
+      button.addEventListener("click", onClick);
+      return button;
+    }
+
+    function addRow(container, title, note, buttons = []) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const main = document.createElement("div");
+      main.className = "row-main";
+      main.textContent = title;
+      if (note) {
+        const small = document.createElement("span");
+        small.className = "row-note";
+        small.textContent = note;
+        main.appendChild(small);
+      }
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+      buttons.forEach(button => actions.appendChild(button));
+      row.append(main, actions);
+      container.appendChild(row);
+    }
+
+    function refreshPeopleSelects() {
+      [document.getElementById("from-person"), document.getElementById("to-person")].forEach(select => {
+        const previous = select.value;
+        select.innerHTML = "";
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = "选择人物";
+        select.appendChild(first);
+        people.forEach(person => {
+          const option = document.createElement("option");
+          option.value = person.id;
+          option.textContent = person.name;
+          select.appendChild(option);
+        });
+        if (people.some(person => String(person.id) === previous)) select.value = previous;
+      });
+    }
+
+    function renderPeople() {
+      peopleRows.innerHTML = "";
+      if (!people.length) {
+        peopleRows.innerHTML = '<div class="empty">还没有人物，先在上面的框里添加。</div>';
+        refreshPeopleSelects();
+        return;
+      }
+      people.forEach(person => {
+        const edit = makeButton("修改", "", () => {
+          document.getElementById("person-id").value = person.id;
+          document.getElementById("person-name").value = person.name;
+          document.getElementById("person-description").value = person.description || "";
+          document.getElementById("person-save").textContent = "保存修改";
+          document.getElementById("person-cancel").classList.remove("hidden");
+          document.getElementById("person-name").focus();
+        });
+        const remove = makeButton("删除", "danger", async () => {
+          if (!confirm(`要删除“${person.name}”吗？与这个人的关系也会一起删除。`)) return;
+          const { error } = await database.from("people").delete().eq("id", person.id);
+          if (error) return setStatus(document.getElementById("person-status"), error.message, true);
+          await loadManagerData();
+        });
+        addRow(peopleRows, person.name, person.description, [edit, remove]);
+      });
+      refreshPeopleSelects();
+    }
+
+    function renderRelationships() {
+      relationshipRows.innerHTML = "";
+      if (!relationships.length) {
+        relationshipRows.innerHTML = '<div class="empty">还没有关系记录。</div>';
+        return;
+      }
+      relationships.forEach(edge => {
+        const a = people.find(person => String(person.id) === String(edge.from_id));
+        const b = people.find(person => String(person.id) === String(edge.to_id));
+        if (!a || !b) return;
+        const edit = makeButton("修改", "", () => {
+          document.getElementById("relationship-id").value = edge.id;
+          document.getElementById("from-person").value = edge.from_id;
+          document.getElementById("to-person").value = edge.to_id;
+          document.getElementById("label-from").value = edge.label_from;
+          document.getElementById("label-to").value = edge.label_to || "";
+          document.getElementById("relationship-save").textContent = "保存修改";
+          document.getElementById("relationship-cancel").classList.remove("hidden");
+        });
+        const remove = makeButton("删除", "danger", async () => {
+          if (!confirm(`要删除“${a.name}”和“${b.name}”之间的关系吗？`)) return;
+          const { error } = await database.from("relationships").delete().eq("id", edge.id);
+          if (error) return setStatus(document.getElementById("relationship-status"), error.message, true);
+          await loadManagerData();
+        });
+        const labels = edge.label_to ? `${edge.label_from} / ${edge.label_to}` : edge.label_from;
+        addRow(relationshipRows, `${a.name} — ${labels} — ${b.name}`, "A 对 B / B 对 A", [edit, remove]);
+      });
+    }
+
+    async function loadManagerData() {
+      const [peopleResult, relationshipResult] = await Promise.all([
+        database.from("people").select("id,name,description").order("name"),
+        database.from("relationships").select("id,from_id,to_id,label_from,label_to").order("created_at")
+      ]);
+      if (peopleResult.error) throw peopleResult.error;
+      if (relationshipResult.error) throw relationshipResult.error;
+      people = peopleResult.data || [];
+      relationships = relationshipResult.data || [];
+      renderPeople();
+      renderRelationships();
+    }
+
+    function showManager(session) {
+      const signedIn = Boolean(session);
+      loginCard.classList.toggle("hidden", signedIn);
+      manager.classList.toggle("hidden", !signedIn);
+      if (signedIn) loadManagerData().catch(error => setStatus(document.getElementById("relationship-status"), error.message, true));
+    }
+
+    if (!ready()) {
+      setStatus(loginStatus, "网站还没有连接数据库。需要先完成设置，再登录管理。", true);
+      document.getElementById("login-form").querySelector("button").disabled = true;
+    } else {
+      database = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey);
+      database.auth.getSession().then(({ data }) => showManager(data.session));
+      database.auth.onAuthStateChange((_event, session) => showManager(session));
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!ready()) return;
+      setStatus(loginStatus, "正在登录…");
+      const { error } = await database.auth.signInWithPassword({
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value
+      });
+      setStatus(loginStatus, error ? "登录失败，请检查邮箱和密码。" : "登录成功。", Boolean(error));
+    });
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await database.auth.signOut();
+      showManager(null);
+    });
+
+    const personForm = document.getElementById("person-form");
+    personForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const id = document.getElementById("person-id").value;
+      const values = {
+        name: document.getElementById("person-name").value.trim(),
+        description: document.getElementById("person-description").value.trim()
+      };
+      const request = id ? database.from("people").update(values).eq("id", id) : database.from("people").insert(values);
+      const { error } = await request;
+      if (error) return setStatus(document.getElementById("person-status"), "保存失败，请稍后再试。", true);
+      personForm.reset();
+      document.getElementById("person-id").value = "";
+      document.getElementById("person-save").textContent = "添加人物";
+      document.getElementById("person-cancel").classList.add("hidden");
+      setStatus(document.getElementById("person-status"), "人物已保存。名册已经更新。");
+      await loadManagerData();
+    });
+
+    function cancelPersonEdit() {
+      personForm.reset();
+      document.getElementById("person-id").value = "";
+      document.getElementById("person-save").textContent = "添加人物";
+      document.getElementById("person-cancel").classList.add("hidden");
+    }
+    document.getElementById("person-cancel").addEventListener("click", cancelPersonEdit);
+
+    const relationshipForm = document.getElementById("relationship-form");
+    relationshipForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const id = document.getElementById("relationship-id").value;
+      const fromId = document.getElementById("from-person").value;
+      const toId = document.getElementById("to-person").value;
+      if (!fromId || !toId || fromId === toId) return setStatus(document.getElementById("relationship-status"), "请选择两个不同的人。", true);
+      const values = {
+        from_id: fromId,
+        to_id: toId,
+        label_from: document.getElementById("label-from").value.trim(),
+        label_to: document.getElementById("label-to").value.trim()
+      };
+      const request = id ? database.from("relationships").update(values).eq("id", id) : database.from("relationships").insert(values);
+      const { error } = await request;
+      if (error) return setStatus(document.getElementById("relationship-status"), "保存失败，请检查这两个人和关系内容。", true);
+      relationshipForm.reset();
+      document.getElementById("relationship-id").value = "";
+      document.getElementById("relationship-save").textContent = "添加关系";
+      document.getElementById("relationship-cancel").classList.add("hidden");
+      setStatus(document.getElementById("relationship-status"), "关系已保存。关系图已经更新。");
+      await loadManagerData();
+    });
+
+    document.getElementById("relationship-cancel").addEventListener("click", () => {
+      relationshipForm.reset();
+      document.getElementById("relationship-id").value = "";
+      document.getElementById("relationship-save").textContent = "添加关系";
+      document.getElementById("relationship-cancel").classList.add("hidden");
+    });
+  </script>
+</body>
+</html>
