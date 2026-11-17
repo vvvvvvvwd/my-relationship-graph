@@ -48,6 +48,7 @@
     .person-button { width: 100%; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: left; cursor: pointer; }
     .person-button:hover { background: #f5f5f0; }
     .person-button[aria-pressed="true"] { background: var(--green-soft); }
+    .person-button.is-focused { box-shadow: inset 0 0 0 2px var(--green); }
     .person-button.pair-first { outline: 2px solid #718fae; }
     .person-button.pair-second { outline: 2px solid #b76a74; }
     .avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #e3efde; color: #4d7955; font-size: 14px; font-weight: 700; }
@@ -81,6 +82,7 @@
     .node text { fill:var(--ink); font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
     .node .node-initial { fill:var(--green); font-size:14px; font-weight:750; }
     .node .node-name { font-size:11px; font-weight:650; }
+    .node.selected-focus circle.node-ring { stroke:var(--green); stroke-width:4; }
     .node-label-bg { fill:rgba(250,255,248,.96); stroke:#d8e6d5; stroke-width:1; }
     .empty-state { max-width: 380px; padding: 28px; text-align: center; }
     .empty-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 19px; background: var(--green-soft); color: var(--green); font-size: 27px; }
@@ -134,7 +136,7 @@
       <aside class="panel roster" aria-label="江湖游侠">
         <div class="panel-head">
           <h2>江湖游侠</h2>
-          <p>选两个人，查看他们之间的情谊</p>
+          <p>点名单中的一人看他的情谊林；在图谱里点两人查看称呼</p>
         </div>
         <div class="people" id="people-list"></div>
       </aside>
@@ -142,15 +144,15 @@
       <section class="panel graph-panel" aria-label="情谊林">
         <div class="graph-top">
           <div>
-            <h2 id="graph-heading">全部人物情谊图谱</h2>
-            <p id="graph-subtitle">点击两个人，看看他们之间的情谊</p>
+            <h2 id="graph-heading">总情谊图谱</h2>
+            <p id="graph-subtitle">点名单中的一人看情谊林；点两人查看称呼</p>
           </div>
           <div class="graph-actions">
             <button class="graph-button primary" id="random-pair" type="button">随机选两位</button>
-            <button class="graph-button" id="clear-pair" type="button">清除选择</button>
+            <button class="graph-button" id="clear-pair" type="button">显示总图谱</button>
           </div>
         </div>
-        <div class="pair-result" id="pair-result" aria-live="polite">先点一位侠友，再点另一位，查看他们之间的情谊称呼。</div>
+        <div class="pair-result" id="pair-result" aria-live="polite">在图谱里点两位侠友，查看他们之间的情谊称呼。</div>
         <div class="legend" aria-label="关系颜色说明">
           <span class="legend-item"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒</span>
           <span class="legend-item"><i class="legend-dot" style="--kind-color:#b98645"></i>结义</span>
@@ -179,6 +181,8 @@
     const canvas = document.getElementById("canvas");
     const search = document.getElementById("search");
     let pairIds = [];
+    let focusedPersonId = "";
+    let graphMode = "total";
     let database = null;
 
     document.title = site.title || "一起来玩燕子";
@@ -212,7 +216,9 @@
         button.className = "person-button";
         button.type = "button";
         const personId = String(person.id);
-        button.setAttribute("aria-pressed", String(pairIds.includes(personId)));
+        const focused = graphMode === "person" && focusedPersonId === personId;
+        button.setAttribute("aria-pressed", String(focused || pairIds.includes(personId)));
+        if (focused) button.classList.add("is-focused");
         if (pairIds[0] === personId) button.classList.add("pair-first");
         if (pairIds[1] === personId) button.classList.add("pair-second");
         button.innerHTML = `<span class="avatar" aria-hidden="true"></span><span><span class="person-name"></span><span class="person-sub"></span></span>`;
@@ -227,9 +233,9 @@
           avatar.textContent = initials(person.name);
         }
         button.querySelector(".person-name").textContent = person.name || "未命名";
-        button.querySelector(".person-sub").textContent = person.description || "点击加入两人选择";
+        button.querySelector(".person-sub").textContent = person.description || "点击查看此人的情谊林";
         button.addEventListener("click", () => {
-          choosePerson(person.id);
+          showPersonGraph(person.id);
         });
         list.appendChild(button);
       });
@@ -254,10 +260,107 @@
         (String(edge.from_id) === secondId && String(edge.to_id) === firstId)
       );
     }
+    function teacherEdges() {
+      const teachers = [];
+      const teacherWords = /(师傅|师父|师尊|恩师|师长)/;
+      const studentWords = /(徒弟|徒儿|弟子|门下)/;
+      const add = (masterId, studentId) => {
+        if (masterId && studentId && String(masterId) !== String(studentId)) teachers.push({ masterId: String(masterId), studentId: String(studentId) });
+      };
+      relationships.forEach(edge => {
+        if (edge.kind === "师徒") {
+          add(edge.from_id, edge.to_id);
+          return;
+        }
+        const fromCallsTo = String(edge.label_from || "");
+        const toCallsFrom = String(edge.label_to || "");
+        if (teacherWords.test(fromCallsTo)) add(edge.to_id, edge.from_id);
+        else if (studentWords.test(fromCallsTo)) add(edge.from_id, edge.to_id);
+        if (teacherWords.test(toCallsFrom)) add(edge.from_id, edge.to_id);
+        else if (studentWords.test(toCallsFrom)) add(edge.to_id, edge.from_id);
+      });
+      return [...new Map(teachers.map(edge => [`${edge.masterId}:${edge.studentId}`, edge])).values()];
+    }
+    function teacherDistance(fromId, toId, edges) {
+      const next = new Map();
+      edges.forEach(edge => {
+        if (!next.has(edge.masterId)) next.set(edge.masterId, []);
+        next.get(edge.masterId).push(edge.studentId);
+      });
+      const queue = [[String(fromId), 0]];
+      const seen = new Set([String(fromId)]);
+      while (queue.length) {
+        const [personId, distance] = queue.shift();
+        if (personId === String(toId)) return distance;
+        (next.get(personId) || []).forEach(studentId => {
+          if (seen.has(studentId)) return;
+          seen.add(studentId);
+          queue.push([studentId, distance + 1]);
+        });
+      }
+      return -1;
+    }
+    function teachersAbove(personId, edges) {
+      const previous = new Map();
+      edges.forEach(edge => {
+        if (!previous.has(edge.studentId)) previous.set(edge.studentId, []);
+        previous.get(edge.studentId).push(edge.masterId);
+      });
+      const distances = new Map();
+      const queue = [[String(personId), 0]];
+      const seen = new Set([String(personId)]);
+      while (queue.length) {
+        const [studentId, distance] = queue.shift();
+        (previous.get(studentId) || []).forEach(masterId => {
+          if (seen.has(masterId)) return;
+          seen.add(masterId);
+          distances.set(masterId, distance + 1);
+          queue.push([masterId, distance + 1]);
+        });
+      }
+      return distances;
+    }
+    function inferTraditionalAddress(firstId, secondId) {
+      const edges = teacherEdges();
+      const first = peopleById.get(firstId);
+      const second = peopleById.get(secondId);
+      const firstToSecond = teacherDistance(firstId, secondId, edges);
+      const secondToFirst = teacherDistance(secondId, firstId, edges);
+      if (firstToSecond > 0) {
+        const address = firstToSecond === 1 ? "师傅" : firstToSecond === 2 ? "师祖" : "师门长辈";
+        return `${escapeHtml(second?.name || "人物")} 可尊称 ${escapeHtml(first?.name || "人物")} 为“${address}”。`;
+      }
+      if (secondToFirst > 0) {
+        const address = secondToFirst === 1 ? "师傅" : secondToFirst === 2 ? "师祖" : "师门长辈";
+        return `${escapeHtml(first?.name || "人物")} 可尊称 ${escapeHtml(second?.name || "人物")} 为“${address}”。`;
+      }
+      const firstAncestors = teachersAbove(firstId, edges);
+      const secondAncestors = teachersAbove(secondId, edges);
+      const shared = [...firstAncestors.keys()]
+        .filter(id => secondAncestors.has(id))
+        .sort((a, b) => firstAncestors.get(a) + secondAncestors.get(a) - firstAncestors.get(b) - secondAncestors.get(b));
+      if (shared.length) {
+        const common = shared[0];
+        const firstDistance = firstAncestors.get(common);
+        const secondDistance = secondAncestors.get(common);
+        if (firstDistance === secondDistance) {
+          return "根据已登记的师徒线索，两人属于同一辈分的同门，可礼貌称“同门”；具体师兄、师姐、师弟或师妹要看入门先后和性别。";
+        }
+        const senior = firstDistance < secondDistance ? first : second;
+        const junior = firstDistance < secondDistance ? second : first;
+        return `根据已登记的师徒线索，${escapeHtml(senior?.name || "一方")} 属师门长辈，${escapeHtml(junior?.name || "另一方")} 可尊称对方“师门长辈”；具体师伯、师叔或师姑要看辈分排序和性别。`;
+      }
+      return "没有足够的师门线索推断辈分；按江湖礼数，两人可互称“侠友”。";
+    }
     function describePair() {
       const result = document.getElementById("pair-result");
       if (pairIds.length === 0) {
-        result.textContent = "先点一位侠友，再点另一位，查看他们之间的情谊称呼。";
+        if (graphMode === "person") {
+          const focused = peopleById.get(focusedPersonId);
+          result.innerHTML = `正在查看 <strong>${escapeHtml(focused?.name || "这位侠友")}</strong> 的情谊林；点“显示总图谱”返回全员图谱。`;
+        } else {
+          result.textContent = "在图谱里点两位侠友，查看他们之间的情谊称呼。";
+        }
         return;
       }
       const first = peopleById.get(pairIds[0]);
@@ -268,7 +371,7 @@
       const second = peopleById.get(pairIds[1]);
       const found = edgeForPair(pairIds[0], pairIds[1]);
       if (!found.length) {
-        result.innerHTML = `<strong>${escapeHtml(first?.name || "人物")}</strong> 和 <strong>${escapeHtml(second?.name || "人物")}</strong> 之间还没有记录情谊。`;
+        result.innerHTML = `<strong>${escapeHtml(first?.name || "人物")}</strong> 和 <strong>${escapeHtml(second?.name || "人物")}</strong>：没有直接记录的情谊。${inferTraditionalAddress(pairIds[0], pairIds[1])}`;
         return;
       }
       const descriptions = found.map(edge => {
@@ -293,7 +396,17 @@
     function escapeHtml(value) {
       return String(value || "").replace(/[&<>"']/g, character => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[character]));
     }
-    function choosePerson(id) {
+    function showPersonGraph(id) {
+      graphMode = "person";
+      focusedPersonId = String(id);
+      pairIds = [];
+      describePair();
+      renderList();
+      renderGraph();
+    }
+    function choosePairPerson(id) {
+      graphMode = "total";
+      focusedPersonId = "";
       const value = String(id);
       if (pairIds.includes(value)) pairIds = pairIds.filter(item => item !== value);
       else if (pairIds.length < 2) pairIds = [...pairIds, value];
@@ -306,7 +419,7 @@
     function renderGraph() {
       canvas.innerHTML = "";
       if (!people.length) {
-        document.getElementById("graph-heading").textContent = "全部人物情谊图谱";
+        document.getElementById("graph-heading").textContent = "总情谊图谱";
         document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现全员图谱";
         document.getElementById("random-pair").disabled = true;
         canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">✦</div><h3>还没有人物资料</h3><p>网站管理员可以登录管理页面，添加人物和关系。</p><a class="empty-hint" href="admin.html">打开管理页面</a></div>`;
@@ -314,29 +427,52 @@
       }
 
       document.getElementById("random-pair").disabled = people.length < 2;
-      document.getElementById("graph-heading").textContent = "全部人物情谊图谱";
-      const connectedPeople = new Set(relationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
-      document.getElementById("graph-subtitle").textContent = `${people.length} 位侠友 · ${relationships.length} 段情谊`;
+      const isPersonGraph = graphMode === "person";
+      const center = isPersonGraph ? peopleById.get(focusedPersonId) : null;
+      const displayedRelationships = isPersonGraph && center
+        ? relationships.filter(edge => String(edge.from_id) === focusedPersonId || String(edge.to_id) === focusedPersonId)
+        : relationships;
+      let graphPeople = people;
+      if (isPersonGraph && center) {
+        const relatedIds = new Set(displayedRelationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
+        relatedIds.delete(focusedPersonId);
+        graphPeople = [center, ...people.filter(person => relatedIds.has(String(person.id)))];
+        document.getElementById("graph-heading").textContent = `${center.name || "侠友"}的情谊林`;
+        document.getElementById("graph-subtitle").textContent = displayedRelationships.length
+          ? `以此人为中心 · 与 ${displayedRelationships.length} 段情谊相连`
+          : "目前还没有直接记录的情谊";
+      } else {
+        document.getElementById("graph-heading").textContent = "总情谊图谱";
+        document.getElementById("graph-subtitle").textContent = `${people.length} 位侠友 · ${relationships.length} 段情谊`;
+      }
+      const connectedPeople = new Set(displayedRelationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
 
-      const width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + people.length * 26));
-      const height = Math.max(490, Math.min(1450, 400 + Math.sqrt(people.length) * 120));
+      const width = Math.max(canvas.clientWidth, 760, Math.min(1500, 500 + graphPeople.length * 26));
+      const height = Math.max(490, Math.min(1450, 400 + Math.sqrt(graphPeople.length) * 120));
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.classList.add("graph-svg");
       svg.setAttribute("role", "group");
-      svg.setAttribute("aria-label", "包含全部人物的情谊图谱，可选择两人查看关系");
+      svg.setAttribute("aria-label", isPersonGraph ? `${center?.name || "侠友"}的情谊林` : "总情谊图谱，可选择两人查看关系");
 
-      const n = people.length;
-      const positions = people.map((person, index) => {
+      const n = graphPeople.length;
+      const cx = width / 2, cy = height / 2;
+      const positions = graphPeople.map((person, index) => {
+        if (isPersonGraph && index === 0) return { x: cx, y: cy };
+        if (isPersonGraph) {
+          const angle = -Math.PI / 2 + 2 * Math.PI * (index - 1) / Math.max(n - 1, 1);
+          const radius = Math.min(width, height) * .31;
+          return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+        }
         const angle = index * 2.399963229728653;
         const radius = 30 + Math.sqrt(index + 1) * Math.min(width, height) * .24;
-        return { x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius };
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
       });
-      const indexById = new Map(people.map((person, index) => [String(person.id), index]));
-      const validEdges = relationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
+      const indexById = new Map(graphPeople.map((person, index) => [String(person.id), index]));
+      const validEdges = displayedRelationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
       const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
       const padding = 80;
-      for (let step = 0; step < 150; step += 1) {
+      for (let step = 0; !isPersonGraph && step < 150; step += 1) {
         const forces = positions.map(() => ({ x: 0, y: 0 }));
         for (let i = 0; i < n; i += 1) {
           for (let j = i + 1; j < n; j += 1) {
@@ -391,17 +527,17 @@
 
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
       svg.appendChild(defs);
-      people.forEach((person, index) => {
+      graphPeople.forEach((person, index) => {
         const point = positions[index];
         const personId = String(person.id);
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        const selectionClass = pairIds[0] === personId ? " selected-first" : pairIds[1] === personId ? " selected-second" : "";
+        const selectionClass = pairIds[0] === personId ? " selected-first" : pairIds[1] === personId ? " selected-second" : isPersonGraph && index === 0 ? " selected-focus" : "";
         group.setAttribute("class", `node${selectionClass}`);
         group.setAttribute("transform", `translate(${point.x}, ${point.y})`);
         group.setAttribute("tabindex", "0");
         group.setAttribute("role", "button");
-        group.setAttribute("aria-label", `选择${person.name || "未命名"}`);
-        group.addEventListener("click", () => choosePerson(person.id));
+        group.setAttribute("aria-label", isPersonGraph ? `查看${person.name || "未命名"}的情谊林` : `选择${person.name || "未命名"}查看两人称呼`);
+        group.addEventListener("click", () => isPersonGraph ? showPersonGraph(person.id) : choosePairPerson(person.id));
         group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); group.click(); } });
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("r", connectedPeople.has(personId) ? "25" : "21");
@@ -457,11 +593,16 @@
       const firstIndex = Math.floor(Math.random() * people.length);
       let secondIndex = Math.floor(Math.random() * (people.length - 1));
       if (secondIndex >= firstIndex) secondIndex += 1;
+      graphMode = "total";
+      focusedPersonId = "";
       pairIds = [String(people[firstIndex].id), String(people[secondIndex].id)];
       describePair(); renderList(); renderGraph();
     });
     document.getElementById("clear-pair").addEventListener("click", () => {
-      pairIds = []; describePair(); renderList(); renderGraph();
+      pairIds = [];
+      focusedPersonId = "";
+      graphMode = "total";
+      describePair(); renderList(); renderGraph();
     });
 
     async function loadData() {
@@ -488,6 +629,8 @@
         relationships = relationshipResult.data || [];
         peopleById = new Map(people.map(person => [String(person.id), person]));
         pairIds = [];
+        focusedPersonId = "";
+        graphMode = "total";
         document.getElementById("count").textContent = `共收录 ${people.length} 人`;
         describePair();
         renderList();
