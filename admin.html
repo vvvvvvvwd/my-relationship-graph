@@ -23,6 +23,7 @@
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     label { display:block; color:#52615a; font-size:12px; font-weight:650; }
     input,select { width:100%; height:42px; margin-top:6px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); outline:none; }
+    input[type="checkbox"] { width:18px; height:18px; flex:0 0 18px; margin:0; padding:0; accent-color:var(--green); }
     input[type="file"] { height:auto; min-height:42px; padding:7px; }
     input:focus,select:focus { border-color:#79a99b; box-shadow:0 0 0 3px rgba(52,117,102,.1); }
     .avatar-preview { display:flex; align-items:center; gap:12px; }
@@ -35,6 +36,13 @@
     .button.danger { color:var(--red); }
     .button:disabled { opacity:.55; cursor:not-allowed; }
     .status { min-height:20px; margin:8px 0 0; color:var(--muted); font-size:12px; }
+    .members-field { grid-column:1 / -1; min-width:0; }
+    .field-label { color:#52615a; font-size:12px; font-weight:650; }
+    .member-picker { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:230px; margin-top:7px; padding:2px 2px 2px 0; overflow:auto; }
+    .member-option { display:flex; min-width:0; align-items:center; gap:8px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); cursor:pointer; font-size:13px; font-weight:550; }
+    .member-option span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .member-option.selected { border-color:#8caf91; background:#edf5e9; }
+    .member-option.disabled { opacity:.5; cursor:not-allowed; }
     .status.error { color:var(--red); }
     .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #efeee8; }
     .row-main { min-width:0; overflow-wrap:anywhere; font-size:13px; }
@@ -86,14 +94,19 @@
       </div>
 
       <div class="card">
-        <div class="card-heading"><div><h2>情谊</h2><p>选择情谊类型，再选择相关人物。</p></div></div>
+        <div class="card-heading"><div><h2>情谊</h2><p>结义可以一次选择 2—10 人；其他关系选择两位人物。</p></div></div>
         <form id="relationship-form">
           <input id="relationship-id" type="hidden">
           <div class="grid">
             <label>情谊类型<select id="relationship-kind" required><option value="">先选情谊类型</option><option value="师徒">师徒</option><option value="结义">结义</option><option value="侠缘">侠缘</option><option value="其他">其他（自定义）</option></select></label>
             <div></div>
-            <label><span id="from-person-label">师傅</span><select id="from-person" required></select></label>
-            <label><span id="to-person-label">徒弟</span><select id="to-person" required></select></label>
+            <label id="from-person-wrap"><span id="from-person-label">师傅</span><select id="from-person" required></select></label>
+            <label id="to-person-wrap"><span id="to-person-label">徒弟</span><select id="to-person" required></select></label>
+            <div id="brotherhood-members-wrap" class="members-field hidden">
+              <div class="field-label">结义成员（最多 10 人）</div>
+              <div id="brotherhood-members" class="member-picker" role="group" aria-label="选择结义成员"></div>
+              <p class="status" id="brotherhood-selection-status" aria-live="polite">已选 0 人，请选择 2—10 人。</p>
+            </div>
             <label id="label-from-wrap" class="hidden">A 对 B 的称呼<input id="label-from" maxlength="60" placeholder="例如：朋友"></label>
             <label id="label-to-wrap" class="hidden">B 对 A 的称呼<input id="label-to" maxlength="60" placeholder="例如：知己（可以不填）"></label>
           </div>
@@ -229,6 +242,37 @@
         });
         if (people.some(person => String(person.id) === previous)) select.value = previous;
       });
+      const memberPicker = document.getElementById("brotherhood-members");
+      const selectedIds = new Set(Array.from(memberPicker.querySelectorAll('input[type="checkbox"]:checked'), input => input.value));
+      memberPicker.innerHTML = "";
+      people.forEach(person => {
+        const option = document.createElement("label");
+        option.className = "member-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = String(person.id);
+        checkbox.checked = selectedIds.has(String(person.id));
+        checkbox.addEventListener("change", updateBrotherhoodSelection);
+        const name = document.createElement("span");
+        name.textContent = person.name || "未命名";
+        option.append(checkbox, name);
+        memberPicker.appendChild(option);
+      });
+      updateBrotherhoodSelection();
+    }
+
+    function updateBrotherhoodSelection() {
+      const memberPicker = document.getElementById("brotherhood-members");
+      const checkboxes = Array.from(memberPicker.querySelectorAll('input[type="checkbox"]'));
+      const selectedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+      checkboxes.forEach(checkbox => {
+        checkbox.disabled = !checkbox.checked && selectedCount >= 10;
+        const option = checkbox.closest(".member-option");
+        option.classList.toggle("selected", checkbox.checked);
+        option.classList.toggle("disabled", checkbox.disabled);
+      });
+      const status = document.getElementById("brotherhood-selection-status");
+      if (status) status.textContent = `已选 ${selectedCount} 人；最多 10 人，至少 2 人。`;
     }
 
     function selectedRelationshipKind() {
@@ -239,19 +283,35 @@
       const kind = selectedRelationshipKind();
       const fromLabel = document.getElementById("from-person-label");
       const toLabel = document.getElementById("to-person-label");
-      const fromWrap = document.getElementById("label-from-wrap");
-      const toWrap = document.getElementById("label-to-wrap");
+      const fromPersonWrap = document.getElementById("from-person-wrap");
+      const toPersonWrap = document.getElementById("to-person-wrap");
+      const memberWrap = document.getElementById("brotherhood-members-wrap");
+      const fromPerson = document.getElementById("from-person");
+      const toPerson = document.getElementById("to-person");
+      const customFromWrap = document.getElementById("label-from-wrap");
+      const customToWrap = document.getElementById("label-to-wrap");
       const fromInput = document.getElementById("label-from");
       const toInput = document.getElementById("label-to");
       const help = document.getElementById("relationship-kind-help");
       const custom = kind === "其他";
+      const brotherhood = kind === "结义";
       fromLabel.textContent = kind === "师徒" ? "师傅" : "人物 A";
       toLabel.textContent = kind === "师徒" ? "徒弟" : "人物 B";
-      fromWrap.classList.toggle("hidden", !custom);
-      toWrap.classList.toggle("hidden", !custom);
+      fromPersonWrap.classList.toggle("hidden", brotherhood);
+      toPersonWrap.classList.toggle("hidden", brotherhood);
+      memberWrap.classList.toggle("hidden", !brotherhood);
+      fromPerson.required = !brotherhood;
+      toPerson.required = !brotherhood;
+      customFromWrap.classList.toggle("hidden", !custom);
+      customToWrap.classList.toggle("hidden", !custom);
       fromInput.required = custom;
       toInput.required = false;
-      help.textContent = kind === "师徒" ? "人物 A 是师傅，人物 B 是徒弟，图谱会按这个方向显示。" :
+      const tieOption = document.querySelector('#relationship-kind option[value="结义"]');
+      tieOption.disabled = Boolean(document.getElementById("relationship-id").value) && !brotherhood;
+      document.getElementById("relationship-save").textContent = document.getElementById("relationship-id").value
+        ? "保存修改" : brotherhood ? "创建结义圈" : "添加关系";
+      help.textContent = brotherhood ? "选择 2—10 人，保存后会自动登记圈内成员彼此的结义。" :
+        kind === "师徒" ? "人物 A 是师傅，人物 B 是徒弟，图谱会按这个方向显示。" :
         kind === "其他" ? "可以填写双方各自使用的称呼。" : kind ? `${kind}会用对应颜色显示在图谱上。` : "请先选择情谊类型。";
     }
 
@@ -297,7 +357,8 @@
         relationshipRows.innerHTML = '<div class="empty">还没有关系记录。</div>';
         return;
       }
-      relationships.forEach(edge => {
+      const ordinaryEdges = relationships.filter(edge => edge.kind !== "结义");
+      ordinaryEdges.forEach(edge => {
         const a = people.find(person => String(person.id) === String(edge.from_id));
         const b = people.find(person => String(person.id) === String(edge.to_id));
         if (!a || !b) return;
@@ -323,6 +384,42 @@
           kind === "其他" ? `${edge.label_from || "自定义关系"}${edge.label_to ? ` / ${edge.label_to}` : ""}` : kind;
         addRow(relationshipRows, `${a.name} — ${b.name}`, note, [edit, remove], null, kind);
       });
+
+      const tieEdges = relationships.filter(edge => edge.kind === "结义");
+      const tieAdjacency = new Map();
+      const addTieMember = id => {
+        if (!tieAdjacency.has(id)) tieAdjacency.set(id, new Set());
+        return tieAdjacency.get(id);
+      };
+      tieEdges.forEach(edge => {
+        const a = String(edge.from_id), b = String(edge.to_id);
+        addTieMember(a).add(b);
+        addTieMember(b).add(a);
+      });
+      const visitedTieMembers = new Set();
+      for (const startId of tieAdjacency.keys()) {
+        if (visitedTieMembers.has(startId)) continue;
+        const memberIds = [], queue = [startId];
+        visitedTieMembers.add(startId);
+        for (let cursor = 0; cursor < queue.length; cursor += 1) {
+          const current = queue[cursor];
+          memberIds.push(current);
+          tieAdjacency.get(current).forEach(next => {
+            if (!visitedTieMembers.has(next)) { visitedTieMembers.add(next); queue.push(next); }
+          });
+        }
+        const members = people.filter(person => memberIds.includes(String(person.id)));
+        const groupEdges = tieEdges.filter(edge => memberIds.includes(String(edge.from_id)) && memberIds.includes(String(edge.to_id)));
+        if (!members.length || !groupEdges.length) continue;
+        const memberNames = members.map(person => person.name || "未命名");
+        const remove = makeButton("删除结义圈", "danger", async () => {
+          if (!confirm(`要删除“${memberNames.join("、")}”这个结义圈吗？共 ${groupEdges.length} 段结义关系。`)) return;
+          const { error } = await database.from("relationships").delete().in("id", groupEdges.map(edge => edge.id));
+          if (error) return setStatus(document.getElementById("relationship-status"), error.message, true);
+          await loadManagerData();
+        });
+        addRow(relationshipRows, `结义圈 · ${members.length} 人`, memberNames.join("、"), [remove], null, "结义");
+      }
     }
 
     async function loadManagerData() {
@@ -515,11 +612,39 @@
     relationshipForm.addEventListener("submit", async event => {
       event.preventDefault();
       const id = document.getElementById("relationship-id").value;
+      const kind = selectedRelationshipKind();
+      if (!relationshipKindColumnAvailable) return setStatus(document.getElementById("relationship-status"), "还差一步：请先把“情谊关系类型设置.sql”里的内容复制到 Supabase 的 SQL Editor 并运行，再添加情谊。", true);
+
+      if (kind === "结义") {
+        if (id) return setStatus(document.getElementById("relationship-status"), "请先取消单条关系修改，再创建结义圈。", true);
+        const memberIds = Array.from(document.querySelectorAll('#brotherhood-members input[type="checkbox"]:checked'), input => input.value);
+        if (memberIds.length < 2 || memberIds.length > 10) return setStatus(document.getElementById("relationship-status"), "结义圈需要选择 2—10 位侠友。", true);
+        const pairKey = (a, b) => [String(a), String(b)].sort().join("|");
+        const existingPairs = new Set(relationships.filter(edge => edge.kind === "结义").map(edge => pairKey(edge.from_id, edge.to_id)));
+        const values = [];
+        for (let first = 0; first < memberIds.length; first += 1) {
+          for (let second = first + 1; second < memberIds.length; second += 1) {
+            const fromId = memberIds[first], toId = memberIds[second];
+            if (existingPairs.has(pairKey(fromId, toId))) continue;
+            values.push({ from_id: fromId, to_id: toId, kind: "结义", label_from: "结义", label_to: "结义" });
+          }
+        }
+        if (!values.length) return setStatus(document.getElementById("relationship-status"), "这些侠友之间的结义关系都已经登记过了，没有重复添加。");
+        const { error } = await database.from("relationships").insert(values);
+        if (error) return setStatus(document.getElementById("relationship-status"), "结义圈保存失败，请检查数据库设置后重试。", true);
+        relationshipForm.reset();
+        document.getElementById("relationship-id").value = "";
+        document.getElementById("relationship-cancel").classList.add("hidden");
+        updateRelationshipFields();
+        updateBrotherhoodSelection();
+        setStatus(document.getElementById("relationship-status"), `结义圈已保存，新增 ${values.length} 段结义关系。`);
+        await loadManagerData();
+        return;
+      }
+
       const fromId = document.getElementById("from-person").value;
       const toId = document.getElementById("to-person").value;
       if (!fromId || !toId || fromId === toId) return setStatus(document.getElementById("relationship-status"), "请选择两个不同的人。", true);
-      if (!relationshipKindColumnAvailable) return setStatus(document.getElementById("relationship-status"), "还差一步：请先把“情谊关系类型设置.sql”里的内容复制到 Supabase 的 SQL Editor 并运行，再添加情谊。", true);
-      const kind = selectedRelationshipKind();
       const values = {
         from_id: fromId,
         to_id: toId,
@@ -534,8 +659,8 @@
       document.getElementById("relationship-id").value = "";
       document.getElementById("relationship-save").textContent = "添加关系";
       document.getElementById("relationship-cancel").classList.add("hidden");
-      document.getElementById("relationship-kind").value = "";
       updateRelationshipFields();
+      updateBrotherhoodSelection();
       setStatus(document.getElementById("relationship-status"), "关系已保存。关系图已经更新。");
       await loadManagerData();
     });

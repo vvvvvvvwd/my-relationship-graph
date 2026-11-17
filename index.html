@@ -82,6 +82,9 @@
     svg.graph-svg { display:block; width:100%; height:auto; min-height:0; overflow:visible; }
     .edge { fill:none; stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
     .edge.edge-brotherhood { stroke-width:2; opacity:.68; }
+    .brotherhood-circle { fill:rgba(185,134,69,.055); stroke:var(--edge-color,#b98645); stroke-width:2.4; stroke-dasharray:7 7; pointer-events:none; }
+    .brotherhood-circle-label-bg { fill:rgba(255,252,244,.97); stroke:#b98645; stroke-width:1.2; pointer-events:none; }
+    .brotherhood-circle-label { fill:#8e642e; font-size:12px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
     .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
     .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
     .node { cursor:grab; outline:none; touch-action:none; user-select:none; -webkit-user-select:none; }
@@ -556,7 +559,29 @@
       const n = graphPeople.length;
       const indexById = new Map(graphPeople.map((person, index) => [String(person.id), index]));
       const validEdges = displayedRelationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
-      const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
+      const brotherhoodEdges = isPersonGraph ? [] : validEdges.filter(edge => relationshipKind(edge) === "结义");
+      const renderedEdges = isPersonGraph ? validEdges : validEdges.filter(edge => relationshipKind(edge) !== "结义");
+      const linkedPairs = renderedEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
+      const brotherhoodAdjacency = Array.from({ length: n }, () => new Set());
+      brotherhoodEdges.forEach(edge => {
+        const a = indexById.get(String(edge.from_id)), b = indexById.get(String(edge.to_id));
+        if (a !== b) { brotherhoodAdjacency[a].add(b); brotherhoodAdjacency[b].add(a); }
+      });
+      const brotherhoodGroups = [];
+      const brotherhoodVisited = new Set();
+      for (let start = 0; start < n; start += 1) {
+        if (brotherhoodVisited.has(start) || !brotherhoodAdjacency[start].size) continue;
+        const members = [], queue = [start];
+        brotherhoodVisited.add(start);
+        for (let cursor = 0; cursor < queue.length; cursor += 1) {
+          const current = queue[cursor];
+          members.push(current);
+          brotherhoodAdjacency[current].forEach(next => {
+            if (!brotherhoodVisited.has(next)) { brotherhoodVisited.add(next); queue.push(next); }
+          });
+        }
+        brotherhoodGroups.push(members);
+      }
       let forestPositions = null;
       let graphIsForest = true;
       if (!isPersonGraph) {
@@ -624,6 +649,10 @@
           width = Math.max(canvas.clientWidth, packingWidth);
           height = Math.max(490, y + rowHeight + 60);
         }
+        if (brotherhoodGroups.length) {
+          forestPositions = null;
+          graphIsForest = false;
+        }
       }
       const fitScale = canvas.clientWidth < 760 ? 1 : Math.min(1, canvas.clientWidth / width);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -670,6 +699,14 @@
           const force = (distance - 180) * .002;
           forces[a].x += dx / distance * force; forces[a].y += dy / distance * force;
           forces[b].x -= dx / distance * force; forces[b].y -= dy / distance * force;
+        });
+        brotherhoodGroups.forEach(members => {
+          const centerX = members.reduce((sum, index) => sum + positions[index].x, 0) / members.length;
+          const centerY = members.reduce((sum, index) => sum + positions[index].y, 0) / members.length;
+          members.forEach(index => {
+            forces[index].x += (centerX - positions[index].x) * .025;
+            forces[index].y += (centerY - positions[index].y) * .025;
+          });
         });
         linkedPairs.forEach(([a, b]) => {
           for (let node = 0; node < n; node += 1) {
@@ -739,12 +776,22 @@
         });
       }
 
+      const tieCircleVisuals = brotherhoodGroups.map(members => {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("class", "brotherhood-circle");
+        circle.style.setProperty("--edge-color", kindColors["结义"]);
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        title.textContent = `结义圈，包含 ${members.length} 位侠友`;
+        circle.appendChild(title);
+        svg.appendChild(circle);
+        return { members, circle, labelBg: null, labelText: null, labelWidth: 0 };
+      });
       const edgeVisuals = [];
       const brotherhoodCount = validEdges.filter(edge => relationshipKind(edge) === "结义").length;
       const brotherhoodLabelStep = Math.max(1, Math.ceil(brotherhoodCount / 5));
       let brotherhoodLabelIndex = 0;
       let brotherhoodCurveIndex = 0;
-      validEdges.forEach(edge => {
+      renderedEdges.forEach(edge => {
         const fromIndex = indexById.get(String(edge.from_id));
         const toIndex = indexById.get(String(edge.to_id));
         const from = positions[fromIndex], to = positions[toIndex];
@@ -779,6 +826,18 @@
           labelText = addSvgText(svg, mx, my + 1, label, "edge-label");
         }
         edgeVisuals.push({ fromIndex, toIndex, line, bg, labelText, labelWidth, curveOffset });
+      });
+
+      tieCircleVisuals.forEach(group => {
+        const label = `结义圈 · ${group.members.length}人`;
+        group.labelWidth = Math.max(82, Array.from(label).length * 12 + 20);
+        group.labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        group.labelBg.setAttribute("width", group.labelWidth);
+        group.labelBg.setAttribute("height", 22);
+        group.labelBg.setAttribute("rx", 11);
+        group.labelBg.setAttribute("class", "brotherhood-circle-label-bg");
+        svg.appendChild(group.labelBg);
+        group.labelText = addSvgText(svg, 0, 0, label, "brotherhood-circle-label");
       });
 
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -863,6 +922,22 @@
       });
 
       let activeDrag = null;
+      const updateBrotherhoodCircles = () => {
+        tieCircleVisuals.forEach(({ members, circle, labelBg, labelText, labelWidth }) => {
+          const centerX = members.reduce((sum, index) => sum + positions[index].x, 0) / members.length;
+          const centerY = members.reduce((sum, index) => sum + positions[index].y, 0) / members.length;
+          const radius = Math.max(92, ...members.map(index => Math.hypot(positions[index].x - centerX, positions[index].y - centerY) + 58));
+          circle.setAttribute("cx", centerX);
+          circle.setAttribute("cy", centerY);
+          circle.setAttribute("r", radius);
+          const labelY = centerY - radius + 17;
+          labelBg.setAttribute("x", centerX - labelWidth / 2);
+          labelBg.setAttribute("y", labelY - 11);
+          labelText.setAttribute("x", centerX);
+          labelText.setAttribute("y", labelY + 1);
+        });
+      };
+      updateBrotherhoodCircles();
       const updateGraphVisuals = () => {
         nodeElements.forEach((group, index) => group.setAttribute("transform", `translate(${positions[index].x}, ${positions[index].y})`));
         edgeVisuals.forEach(({ fromIndex, toIndex, line, bg, labelText, labelWidth, curveOffset }) => {
@@ -874,6 +949,7 @@
             labelText.setAttribute("x", geometry.labelX); labelText.setAttribute("y", geometry.labelY + 1);
           }
         });
+        updateBrotherhoodCircles();
       };
       const moveNearbyPeople = movingIndex => {
         const moving = positions[movingIndex];
