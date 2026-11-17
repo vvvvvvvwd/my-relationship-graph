@@ -80,7 +80,7 @@
     .legend-action { border-color:var(--line); color:var(--green); font-weight:650; }
     .canvas { position: relative; display: block; min-height: 490px; flex: 1; overflow:auto; background-image: linear-gradient(rgba(236, 245, 231, .68), rgba(236, 245, 231, .68)), radial-gradient(#d5e4d2 1px, transparent 1px); background-size: auto, 21px 21px; }
     svg.graph-svg { display:block; width:100%; height:auto; min-height:0; overflow:visible; }
-    .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
+    .edge { fill:none; stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
     .edge.edge-brotherhood { stroke-width:2; opacity:.68; }
     .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
     .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
@@ -278,6 +278,17 @@
       const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
       const x = start.x + t * dx, y = start.y + t * dy;
       return { x, y, t, distance: Math.hypot(point.x - x, point.y - y) };
+    }
+    function edgeGeometry(start, end, curveOffset = 0) {
+      const dx = end.x - start.x, dy = end.y - start.y;
+      const length = Math.max(Math.hypot(dx, dy), 1);
+      const controlX = (start.x + end.x) / 2 - dy / length * curveOffset;
+      const controlY = (start.y + end.y) / 2 + dx / length * curveOffset;
+      return {
+        path: `M ${start.x} ${start.y} Q ${controlX} ${controlY} ${end.x} ${end.y}`,
+        labelX: (start.x + 2 * controlX + end.x) / 4,
+        labelY: (start.y + 2 * controlY + end.y) / 4
+      };
     }
     function segmentsCross(a, b, c, d) {
       const cross = (x1, y1, x2, y2) => x1 * y2 - y1 * x2;
@@ -732,14 +743,19 @@
       const brotherhoodCount = validEdges.filter(edge => relationshipKind(edge) === "结义").length;
       const brotherhoodLabelStep = Math.max(1, Math.ceil(brotherhoodCount / 5));
       let brotherhoodLabelIndex = 0;
+      let brotherhoodCurveIndex = 0;
       validEdges.forEach(edge => {
         const fromIndex = indexById.get(String(edge.from_id));
         const toIndex = indexById.get(String(edge.to_id));
         const from = positions[fromIndex], to = positions[toIndex];
         const kind = relationshipKind(edge);
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
-        line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
+        const curveIndex = kind === "结义" ? brotherhoodCurveIndex++ : -1;
+        const curveOffset = curveIndex >= 0 && brotherhoodCount > 5
+          ? (curveIndex % 2 === 0 ? -1 : 1) * (18 + Math.floor(curveIndex / 2) * 6)
+          : 0;
+        const geometry = edgeGeometry(from, to, curveOffset);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        line.setAttribute("d", geometry.path);
         line.setAttribute("class", "edge");
         if (kind === "结义") line.classList.add("edge-brotherhood");
         line.style.setProperty("--edge-color", kindColors[kind]);
@@ -747,7 +763,7 @@
         title.textContent = `${kind}关系`;
         line.appendChild(title);
         svg.appendChild(line);
-        const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+        const mx = geometry.labelX, my = geometry.labelY;
         const label = ["师徒", "结义", "侠缘"].includes(edge.kind) ? kind : (edge.label_from || kind);
         const labelWidth = Math.max(42, Array.from(label).length * 13 + 18);
         const showLabel = kind !== "结义" || brotherhoodCount <= 5 || brotherhoodLabelIndex % brotherhoodLabelStep === 0;
@@ -762,7 +778,7 @@
           svg.appendChild(bg);
           labelText = addSvgText(svg, mx, my + 1, label, "edge-label");
         }
-        edgeVisuals.push({ fromIndex, toIndex, line, bg, labelText, labelWidth, offset: 0 });
+        edgeVisuals.push({ fromIndex, toIndex, line, bg, labelText, labelWidth, curveOffset });
       });
 
       const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -849,17 +865,13 @@
       let activeDrag = null;
       const updateGraphVisuals = () => {
         nodeElements.forEach((group, index) => group.setAttribute("transform", `translate(${positions[index].x}, ${positions[index].y})`));
-        edgeVisuals.forEach(({ fromIndex, toIndex, line, bg, labelText, labelWidth, offset }) => {
+        edgeVisuals.forEach(({ fromIndex, toIndex, line, bg, labelText, labelWidth, curveOffset }) => {
           const from = positions[fromIndex], to = positions[toIndex];
-          line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
-          line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
-          const dx = to.x - from.x, dy = to.y - from.y;
-          const length = Math.max(Math.hypot(dx, dy), 1);
-          const mx = (from.x + to.x) / 2 - dy / length * offset;
-          const my = (from.y + to.y) / 2 + dx / length * offset;
+          const geometry = edgeGeometry(from, to, curveOffset);
+          line.setAttribute("d", geometry.path);
           if (bg && labelText) {
-            bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
-            labelText.setAttribute("x", mx); labelText.setAttribute("y", my + 1);
+            bg.setAttribute("x", geometry.labelX - labelWidth / 2); bg.setAttribute("y", geometry.labelY - 11);
+            labelText.setAttribute("x", geometry.labelX); labelText.setAttribute("y", geometry.labelY + 1);
           }
         });
       };
