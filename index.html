@@ -98,7 +98,7 @@
       <div class="brand">
       <div class="brand-mark" aria-hidden="true">江湖燕云</div>
         <div>
-          <div class="eyebrow">PEOPLE & CONNECTIONS</div>
+          <div class="eyebrow">WHERE WINDS MEET</div>
           <h1 id="site-title">一起来玩燕子</h1>
         </div>
       </div>
@@ -113,21 +113,21 @@
     </div>
 
     <section class="layout">
-      <aside class="panel roster" aria-label="人物名单">
+      <aside class="panel roster" aria-label="江湖游侠">
         <div class="panel-head">
-          <h2>人物名单</h2>
-          <p>选择一个人，看看相关关系</p>
+          <h2>江湖游侠</h2>
+          <p>选择一个人，看看相关情谊</p>
         </div>
         <div class="people" id="people-list"></div>
       </aside>
 
-      <section class="panel graph-panel" aria-label="关系图">
+      <section class="panel graph-panel" aria-label="情谊林">
         <div class="graph-top">
           <div>
-            <h2 id="graph-heading">关系图</h2>
-            <p id="graph-subtitle">人物和关系会显示在这里</p>
+            <h2 id="graph-heading">情谊林</h2>
+            <p id="graph-subtitle">人物和情谊会显示在这里</p>
           </div>
-          <div class="graph-badge">人物关系</div>
+          <div class="graph-badge">情谊</div>
         </div>
         <div class="canvas" id="canvas"></div>
       </section>
@@ -213,24 +213,24 @@
     function renderGraph() {
       canvas.innerHTML = "";
       if (!people.length) {
-        document.getElementById("graph-heading").textContent = "关系图";
-        document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现关系图";
+        document.getElementById("graph-heading").textContent = "情谊林";
+        document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现情谊林";
         canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">✦</div><h3>还没有人物资料</h3><p>网站管理员可以登录管理页面，添加人物和关系。</p><a class="empty-hint" href="admin.html">打开管理页面</a></div>`;
         return;
       }
 
       const center = peopleById.get(selectedId) || people[0];
       if (!center) return;
-      document.getElementById("graph-heading").textContent = `${center.name}的关系图`;
+      document.getElementById("graph-heading").textContent = `${center.name}的情谊林`;
       const connected = relationships.filter(edge => String(edge.from_id) === String(center.id) || String(edge.to_id) === String(center.id));
-      document.getElementById("graph-subtitle").textContent = connected.length ? `与 ${connected.length} 条关系相连` : "暂时没有记录相关关系";
+      document.getElementById("graph-subtitle").textContent = connected.length ? `与 ${connected.length} 段情谊相连` : "暂时没有记录相关情谊";
 
       const width = Math.max(canvas.clientWidth, 480);
       const height = Math.max(canvas.clientHeight, 420);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.setAttribute("role", "img");
-      svg.setAttribute("aria-label", `${center.name}的人物关系图`);
+      svg.setAttribute("aria-label", `${center.name}的情谊林`);
       const cx = width / 2, cy = height / 2;
       const neighborMap = new Map();
       connected.forEach(edge => {
@@ -352,7 +352,7 @@
         renderGraph();
       } catch (error) {
         document.getElementById("count").textContent = "暂时读不到名单";
-        document.getElementById("graph-heading").textContent = "关系图暂时打不开";
+        document.getElementById("graph-heading").textContent = "情谊林暂时打不开";
         document.getElementById("graph-subtitle").textContent = "请联系网站管理员检查数据库设置";
         canvas.innerHTML = `<div class="empty-state"><div class="empty-mark" aria-hidden="true">!</div><h3>暂时无法读取资料</h3><p>在线名单还没有连好，或数据库暂时没有响应。</p></div>`;
       }
