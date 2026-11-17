@@ -48,7 +48,8 @@
     .person-button { width: 100%; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 12px; background: transparent; padding: 10px; color: var(--ink); text-align: left; cursor: pointer; }
     .person-button:hover { background: #f5f5f0; }
     .person-button[aria-pressed="true"] { background: var(--green-soft); }
-    .avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 50%; background: #e8e4d7; color: #555d50; font-size: 14px; font-weight: 700; }
+    .avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #e3efde; color: #4d7955; font-size: 14px; font-weight: 700; }
+    .avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .person-name { font-size: 14px; font-weight: 650; }
     .person-sub { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 400; }
     .graph-panel { min-height: 565px; display: flex; flex-direction: column; overflow: hidden; }
@@ -66,6 +67,8 @@
     .node.center circle { fill: var(--green); stroke: var(--green); }
     .node text { fill: var(--ink); font-size: 13px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
     .node.center text { fill: #fff; font-weight: 700; }
+    .node-label-bg { fill: rgba(250,255,248,.96); stroke: #d8e6d5; stroke-width: 1; }
+    .node.avatar-node text { fill: var(--ink); font-size: 11px; font-weight: 650; }
     .empty-state { max-width: 380px; padding: 28px; text-align: center; }
     .empty-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 15px; border-radius: 19px; background: var(--green-soft); color: var(--green); font-size: 27px; }
     .empty-state h3 { margin: 0 0 8px; font-family: Georgia, "Songti SC", serif; font-size: 21px; }
@@ -76,7 +79,6 @@
     @media (max-width: 760px) {
       .page { width: min(100% - 24px, 560px); padding-top: 22px; }
       header { align-items: flex-start; }
-      .private-note { max-width: 128px; text-align: right; line-height: 1.5; }
       .toolbar { align-items: stretch; flex-direction: column; }
       .search-wrap { max-width: none; }
       .count { padding-left: 2px; }
@@ -159,6 +161,11 @@
       return Array.from(name || "?")[0] || "?";
     }
 
+    function avatarPublicUrl(path) {
+      if (!path || !database) return "";
+      return database.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    }
+
     function renderList() {
       const query = search.value.trim().toLowerCase();
       const shown = people.filter(person => (person.name || "").toLowerCase().includes(query));
@@ -173,7 +180,16 @@
         button.type = "button";
         button.setAttribute("aria-pressed", String(String(person.id) === selectedId));
         button.innerHTML = `<span class="avatar" aria-hidden="true"></span><span><span class="person-name"></span><span class="person-sub"></span></span>`;
-        button.querySelector(".avatar").textContent = initials(person.name);
+        const avatar = button.querySelector(".avatar");
+        if (person.avatar_path) {
+          const image = document.createElement("img");
+          image.src = avatarPublicUrl(person.avatar_path);
+          image.alt = "";
+          image.addEventListener("error", () => { avatar.textContent = initials(person.name); });
+          avatar.appendChild(image);
+        } else {
+          avatar.textContent = initials(person.name);
+        }
         button.querySelector(".person-name").textContent = person.name || "未命名";
         button.querySelector(".person-sub").textContent = person.description || "点击查看关系";
         button.addEventListener("click", () => {
@@ -249,9 +265,12 @@
         addSvgText(svg, mx, my + 1, item.label || "相关", "edge-label");
       });
 
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      svg.appendChild(defs);
       nodes.forEach(node => {
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.setAttribute("class", `node${node.center ? " center" : ""}`);
+        const hasAvatar = Boolean(node.person.avatar_path);
+        group.setAttribute("class", `node${node.center ? " center" : ""}${hasAvatar ? " avatar-node" : ""}`);
         group.setAttribute("transform", `translate(${node.x}, ${node.y})`);
         if (!node.center) {
           group.setAttribute("tabindex", "0");
@@ -263,9 +282,43 @@
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("r", node.center ? "39" : "33");
         group.appendChild(circle);
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.textContent = node.person.name || "未命名";
-        group.appendChild(text);
+        if (hasAvatar) {
+          const photoRadius = node.center ? 31 : 27;
+          const clipId = `avatar-clip-${String(node.person.id).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+          const clip = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+          clip.setAttribute("id", clipId);
+          const clipCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          clipCircle.setAttribute("r", photoRadius);
+          clip.appendChild(clipCircle);
+          defs.appendChild(clip);
+          const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
+          image.setAttribute("x", -photoRadius);
+          image.setAttribute("y", -photoRadius);
+          image.setAttribute("width", photoRadius * 2);
+          image.setAttribute("height", photoRadius * 2);
+          image.setAttribute("href", avatarPublicUrl(node.person.avatar_path));
+          image.setAttribute("preserveAspectRatio", "xMidYMid slice");
+          image.setAttribute("clip-path", `url(#${clipId})`);
+          group.appendChild(image);
+          const label = node.person.name || "未命名";
+          const labelWidth = Math.min(120, Math.max(42, Array.from(label).length * 11 + 14));
+          const labelBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          labelBg.setAttribute("x", -labelWidth / 2);
+          labelBg.setAttribute("y", 39);
+          labelBg.setAttribute("width", labelWidth);
+          labelBg.setAttribute("height", 20);
+          labelBg.setAttribute("rx", 10);
+          labelBg.setAttribute("class", "node-label-bg");
+          group.appendChild(labelBg);
+          const labelText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          labelText.setAttribute("y", 49);
+          labelText.textContent = label;
+          group.appendChild(labelText);
+        } else {
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.textContent = node.person.name || "未命名";
+          group.appendChild(text);
+        }
         svg.appendChild(group);
       });
       canvas.appendChild(svg);
@@ -281,10 +334,13 @@
         return;
       }
       try {
-        const [peopleResult, relationshipResult] = await Promise.all([
-          database.from("people").select("id,name,description").order("name"),
+        let [peopleResult, relationshipResult] = await Promise.all([
+          database.from("people").select("id,name,description,avatar_path").order("name"),
           database.from("relationships").select("id,from_id,to_id,label_from,label_to")
         ]);
+        if (peopleResult.error) {
+          peopleResult = await database.from("people").select("id,name,description").order("name");
+        }
         if (peopleResult.error) throw peopleResult.error;
         if (relationshipResult.error) throw relationshipResult.error;
         people.push(...(peopleResult.data || []));

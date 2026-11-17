@@ -5,6 +5,7 @@ create table if not exists public.people (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text not null default '',
+  avatar_path text not null default '',
   created_at timestamptz not null default now()
 );
 

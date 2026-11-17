@@ -23,7 +23,12 @@
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     label { display:block; color:#52615a; font-size:12px; font-weight:650; }
     input,select { width:100%; height:42px; margin-top:6px; padding:0 11px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); outline:none; }
+    input[type="file"] { height:auto; min-height:42px; padding:7px; }
     input:focus,select:focus { border-color:#79a99b; box-shadow:0 0 0 3px rgba(52,117,102,.1); }
+    .avatar-preview { display:flex; align-items:center; gap:12px; }
+    .avatar-preview img,.row-avatar { width:52px; height:52px; flex:0 0 52px; border:1px solid var(--line); border-radius:50%; object-fit:cover; background:var(--green-soft); }
+    .row-avatar { display:grid; place-items:center; width:36px; height:36px; flex-basis:36px; color:var(--green); font-size:13px; font-weight:700; }
+    .row-avatar img { display:block; width:100%; height:100%; border-radius:50%; object-fit:cover; }
     .actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; }
     .button { min-height:38px; padding:0 14px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); cursor:pointer; }
     .button.primary { border-color:var(--green); background:var(--green); color:white; }
@@ -69,7 +74,10 @@
           <div class="grid">
             <label>名字<input id="person-name" maxlength="80" required placeholder="例如：小林"></label>
             <label>简单介绍（可以不填）<input id="person-description" maxlength="180" placeholder="例如：大学同学"></label>
+            <label>头像照片（JPG、PNG 或 WebP，2 MB 以内）<input id="person-avatar" class="file-input" type="file" accept="image/jpeg,image/png,image/webp"></label>
+            <div id="avatar-preview" class="avatar-preview hidden"><img id="avatar-preview-image" alt="头像预览"><button class="button" id="avatar-clear" type="button">移除头像</button></div>
           </div>
+          <p class="status">头像会显示在公开网站上。</p>
           <div class="actions"><button class="button primary" id="person-save" type="submit">添加人物</button><button class="button hidden" id="person-cancel" type="button">取消修改</button></div>
         </form>
         <p class="status" id="person-status" role="status"></p>
@@ -103,9 +111,19 @@
     const loginStatus = document.getElementById("login-status");
     const peopleRows = document.getElementById("people-rows");
     const relationshipRows = document.getElementById("relationship-rows");
+    const avatarInput = document.getElementById("person-avatar");
+    const avatarPreview = document.getElementById("avatar-preview");
+    const avatarPreviewImage = document.getElementById("avatar-preview-image");
     let database = null;
     let people = [];
     let relationships = [];
+    let avatarColumnAvailable = true;
+    let currentAvatarPath = "";
+    let selectedAvatarFile = null;
+    let removeAvatarOnSave = false;
+    let avatarPreviewObjectUrl = "";
+    const avatarBucket = "avatars";
+    const maxAvatarSize = 2 * 1024 * 1024;
 
     function setStatus(element, message, isError = false) {
       element.textContent = message || "";
@@ -114,6 +132,31 @@
 
     function ready() {
       return Boolean(config.supabaseUrl && config.supabasePublishableKey && window.supabase);
+    }
+
+    function avatarPublicUrl(path) {
+      if (!path || !database) return "";
+      return database.storage.from(avatarBucket).getPublicUrl(path).data.publicUrl;
+    }
+
+    function hideAvatarPreview() {
+      if (avatarPreviewObjectUrl) URL.revokeObjectURL(avatarPreviewObjectUrl);
+      avatarPreviewObjectUrl = "";
+      avatarPreviewImage.removeAttribute("src");
+      avatarPreview.classList.add("hidden");
+    }
+
+    function showAvatarPreview(path = "", file = null) {
+      hideAvatarPreview();
+      const src = file ? URL.createObjectURL(file) : avatarPublicUrl(path);
+      if (!src) return;
+      if (file) avatarPreviewObjectUrl = src;
+      avatarPreviewImage.src = src;
+      avatarPreview.classList.remove("hidden");
+    }
+
+    function avatarFileExtension(file) {
+      return ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" })[file.type] || "";
     }
 
     function makeButton(label, className, onClick) {
@@ -125,9 +168,22 @@
       return button;
     }
 
-    function addRow(container, title, note, buttons = []) {
+    function addRow(container, title, note, buttons = [], avatarPerson = null) {
       const row = document.createElement("div");
       row.className = "row";
+      if (avatarPerson) {
+        const avatar = document.createElement("span");
+        avatar.className = "row-avatar";
+        if (avatarPerson.avatar_path) {
+          const image = document.createElement("img");
+          image.src = avatarPublicUrl(avatarPerson.avatar_path);
+          image.alt = "";
+          avatar.appendChild(image);
+        } else {
+          avatar.textContent = Array.from(avatarPerson.name || "?")[0] || "?";
+        }
+        row.appendChild(avatar);
+      }
       const main = document.createElement("div");
       main.className = "row-main";
       main.textContent = title;
@@ -174,17 +230,26 @@
           document.getElementById("person-id").value = person.id;
           document.getElementById("person-name").value = person.name;
           document.getElementById("person-description").value = person.description || "";
+          currentAvatarPath = person.avatar_path || "";
+          selectedAvatarFile = null;
+          removeAvatarOnSave = false;
+          avatarInput.value = "";
+          showAvatarPreview(currentAvatarPath);
           document.getElementById("person-save").textContent = "保存修改";
           document.getElementById("person-cancel").classList.remove("hidden");
           document.getElementById("person-name").focus();
         });
         const remove = makeButton("删除", "danger", async () => {
           if (!confirm(`要删除“${person.name}”吗？与这个人的关系也会一起删除。`)) return;
+          if (person.avatar_path) {
+            const { error: avatarError } = await database.storage.from(avatarBucket).remove([person.avatar_path]);
+            if (avatarError) return setStatus(document.getElementById("person-status"), "头像删除失败，请稍后再试。", true);
+          }
           const { error } = await database.from("people").delete().eq("id", person.id);
           if (error) return setStatus(document.getElementById("person-status"), error.message, true);
           await loadManagerData();
         });
-        addRow(peopleRows, person.name, person.description, [edit, remove]);
+        addRow(peopleRows, person.name, person.description, [edit, remove], person);
       });
       refreshPeopleSelects();
     }
@@ -220,11 +285,18 @@
     }
 
     async function loadManagerData() {
-      const [peopleResult, relationshipResult] = await Promise.all([
-        database.from("people").select("id,name,description").order("name"),
+      let [peopleResult, relationshipResult] = await Promise.all([
+        database.from("people").select("id,name,description,avatar_path").order("name"),
         database.from("relationships").select("id,from_id,to_id,label_from,label_to").order("created_at")
       ]);
-      if (peopleResult.error) throw peopleResult.error;
+      if (peopleResult.error) {
+        const legacyPeopleResult = await database.from("people").select("id,name,description").order("name");
+        if (legacyPeopleResult.error) throw legacyPeopleResult.error;
+        peopleResult = legacyPeopleResult;
+        avatarColumnAvailable = false;
+      } else {
+        avatarColumnAvailable = true;
+      }
       if (relationshipResult.error) throw relationshipResult.error;
       people = peopleResult.data || [];
       relationships = relationshipResult.data || [];
@@ -265,26 +337,121 @@
     });
 
     const personForm = document.getElementById("person-form");
+    function resetPersonAvatar() {
+      currentAvatarPath = "";
+      selectedAvatarFile = null;
+      removeAvatarOnSave = false;
+      avatarInput.value = "";
+      hideAvatarPreview();
+    }
+
+    avatarInput.addEventListener("change", () => {
+      const file = avatarInput.files && avatarInput.files[0];
+      selectedAvatarFile = file || null;
+      removeAvatarOnSave = false;
+      if (!file) return showAvatarPreview(currentAvatarPath);
+      if (!avatarFileExtension(file)) {
+        selectedAvatarFile = null;
+        avatarInput.value = "";
+        showAvatarPreview(currentAvatarPath);
+        return setStatus(document.getElementById("person-status"), "请选择 JPG、PNG 或 WebP 图片。", true);
+      }
+      if (file.size > maxAvatarSize) {
+        selectedAvatarFile = null;
+        avatarInput.value = "";
+        showAvatarPreview(currentAvatarPath);
+        return setStatus(document.getElementById("person-status"), "头像图片不能超过 2 MB。", true);
+      }
+      showAvatarPreview("", file);
+      setStatus(document.getElementById("person-status"), "头像已选好，保存人物后会上传。请记得头像会公开显示。");
+    });
+
+    document.getElementById("avatar-clear").addEventListener("click", () => {
+      if (selectedAvatarFile) {
+        selectedAvatarFile = null;
+        avatarInput.value = "";
+        removeAvatarOnSave = false;
+        showAvatarPreview(currentAvatarPath);
+        return setStatus(document.getElementById("person-status"), "已取消新头像。");
+      }
+      if (currentAvatarPath && !removeAvatarOnSave) {
+        removeAvatarOnSave = true;
+        hideAvatarPreview();
+        return setStatus(document.getElementById("person-status"), "保存修改后会移除当前头像。");
+      }
+      if (removeAvatarOnSave) {
+        removeAvatarOnSave = false;
+        showAvatarPreview(currentAvatarPath);
+        return setStatus(document.getElementById("person-status"), "已保留当前头像。");
+      }
+    });
+
     personForm.addEventListener("submit", async event => {
       event.preventDefault();
       const id = document.getElementById("person-id").value;
+      const existing = people.find(person => String(person.id) === String(id));
+      const personId = id || crypto.randomUUID();
+      const oldAvatarPath = existing && existing.avatar_path || "";
       const values = {
         name: document.getElementById("person-name").value.trim(),
         description: document.getElementById("person-description").value.trim()
       };
-      const request = id ? database.from("people").update(values).eq("id", id) : database.from("people").insert(values);
-      const { error } = await request;
-      if (error) return setStatus(document.getElementById("person-status"), "保存失败，请稍后再试。", true);
-      personForm.reset();
-      document.getElementById("person-id").value = "";
-      document.getElementById("person-save").textContent = "添加人物";
-      document.getElementById("person-cancel").classList.add("hidden");
-      setStatus(document.getElementById("person-status"), "人物已保存。名册已经更新。");
-      await loadManagerData();
+      const saveButton = document.getElementById("person-save");
+      let uploadedAvatarPath = "";
+      let nextAvatarPath = removeAvatarOnSave ? "" : oldAvatarPath;
+      saveButton.disabled = true;
+      setStatus(document.getElementById("person-status"), "正在保存人物…");
+      try {
+        if (selectedAvatarFile) {
+          if (!avatarColumnAvailable) {
+            setStatus(document.getElementById("person-status"), "头像设置还没有完成，请先启用头像存储。", true);
+            return;
+          }
+          const extension = avatarFileExtension(selectedAvatarFile);
+          uploadedAvatarPath = `${personId}/${crypto.randomUUID()}.${extension}`;
+          const { error: uploadError } = await database.storage.from(avatarBucket).upload(uploadedAvatarPath, selectedAvatarFile, {
+            contentType: selectedAvatarFile.type,
+            cacheControl: "3600",
+            upsert: false
+          });
+          if (uploadError) {
+            uploadedAvatarPath = "";
+            setStatus(document.getElementById("person-status"), "暂时无法上传头像，头像存储设置还没有启用。", true);
+            return;
+          }
+          nextAvatarPath = uploadedAvatarPath;
+        }
+
+        if (avatarColumnAvailable) values.avatar_path = nextAvatarPath;
+        const saveResult = id
+          ? await database.from("people").update(values).eq("id", id)
+          : await database.from("people").insert({ id: personId, ...values });
+        if (saveResult.error) {
+          if (uploadedAvatarPath) await database.storage.from(avatarBucket).remove([uploadedAvatarPath]);
+          return setStatus(document.getElementById("person-status"), "保存失败，请稍后再试。", true);
+        }
+
+        if (oldAvatarPath && oldAvatarPath !== nextAvatarPath) {
+          await database.storage.from(avatarBucket).remove([oldAvatarPath]);
+        }
+        personForm.reset();
+        resetPersonAvatar();
+        document.getElementById("person-id").value = "";
+        document.getElementById("person-save").textContent = "添加人物";
+        document.getElementById("person-cancel").classList.add("hidden");
+        setStatus(document.getElementById("person-status"), "人物已保存。名册已经更新。");
+        await loadManagerData();
+      } catch (error) {
+        if (uploadedAvatarPath) await database.storage.from(avatarBucket).remove([uploadedAvatarPath]);
+        setStatus(document.getElementById("person-status"), "保存失败，请稍后再试。", true);
+      } finally {
+        saveButton.disabled = false;
+      }
     });
 
     function cancelPersonEdit() {
       personForm.reset();
+      resetPersonAvatar();
       document.getElementById("person-id").value = "";
       document.getElementById("person-save").textContent = "添加人物";
       document.getElementById("person-cancel").classList.add("hidden");
