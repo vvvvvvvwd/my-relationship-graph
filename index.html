@@ -259,6 +259,25 @@
       svg.appendChild(label);
     }
 
+    function projectToSegment(point, start, end) {
+      const dx = end.x - start.x, dy = end.y - start.y;
+      const lengthSquared = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
+      const x = start.x + t * dx, y = start.y + t * dy;
+      return { x, y, t, distance: Math.hypot(point.x - x, point.y - y) };
+    }
+    function segmentsCross(a, b, c, d) {
+      const cross = (x1, y1, x2, y2) => x1 * y2 - y1 * x2;
+      const rx = b.x - a.x, ry = b.y - a.y;
+      const sx = d.x - c.x, sy = d.y - c.y;
+      const denominator = cross(rx, ry, sx, sy);
+      if (Math.abs(denominator) < .001) return null;
+      const qx = c.x - a.x, qy = c.y - a.y;
+      const t = cross(qx, qy, sx, sy) / denominator;
+      const u = cross(qx, qy, rx, ry) / denominator;
+      return t > .025 && t < .975 && u > .025 && u < .975 ? { t, u } : null;
+    }
+
     const kindColors = { "师徒": "#718fae", "结义": "#b98645", "侠缘": "#b76a74", "其他": "#82957f" };
     function relationshipKind(edge) {
       if (["师徒", "结义", "侠缘"].includes(edge.kind)) return edge.kind;
@@ -504,7 +523,7 @@
       const validEdges = displayedRelationships.filter(edge => indexById.has(String(edge.from_id)) && indexById.has(String(edge.to_id)));
       const linkedPairs = validEdges.map(edge => [indexById.get(String(edge.from_id)), indexById.get(String(edge.to_id))]);
       const padding = 80;
-      for (let step = 0; !isPersonGraph && step < 150; step += 1) {
+      for (let step = 0; !isPersonGraph && step < 220; step += 1) {
         const forces = positions.map(() => ({ x: 0, y: 0 }));
         for (let i = 0; i < n; i += 1) {
           for (let j = i + 1; j < n; j += 1) {
@@ -521,11 +540,64 @@
         linkedPairs.forEach(([a, b]) => {
           const dx = positions[b].x - positions[a].x, dy = positions[b].y - positions[a].y;
           const distance = Math.max(Math.hypot(dx, dy), 1);
-          const force = (distance - 150) * .008;
+          const force = (distance - 180) * .008;
           forces[a].x += dx / distance * force; forces[a].y += dy / distance * force;
           forces[b].x -= dx / distance * force; forces[b].y -= dy / distance * force;
         });
-        const cooling = .65 * (1 - step / 180);
+        linkedPairs.forEach(([a, b]) => {
+          for (let node = 0; node < n; node += 1) {
+            if (node === a || node === b) continue;
+            const point = positions[node];
+            const projection = projectToSegment(point, positions[a], positions[b]);
+            if (projection.distance >= 58) continue;
+            let dx = point.x - projection.x, dy = point.y - projection.y;
+            let distance = projection.distance;
+            if (distance < .001) {
+              const edgeX = positions[b].x - positions[a].x, edgeY = positions[b].y - positions[a].y;
+              distance = 1;
+              dx = -edgeY / Math.max(Math.hypot(edgeX, edgeY), 1);
+              dy = edgeX / Math.max(Math.hypot(edgeX, edgeY), 1);
+              if ((node + a + b) % 2) { dx *= -1; dy *= -1; }
+            } else {
+              dx /= distance; dy /= distance;
+            }
+            const force = Math.min(4, (58 - projection.distance) * .09);
+            forces[node].x += dx * force;
+            forces[node].y += dy * force;
+            forces[a].x -= dx * force * (1 - projection.t) * .45;
+            forces[a].y -= dy * force * (1 - projection.t) * .45;
+            forces[b].x -= dx * force * projection.t * .45;
+            forces[b].y -= dy * force * projection.t * .45;
+          }
+        });
+        for (let firstEdge = 0; firstEdge < linkedPairs.length; firstEdge += 1) {
+          for (let secondEdge = firstEdge + 1; secondEdge < linkedPairs.length; secondEdge += 1) {
+            const [a, b] = linkedPairs[firstEdge];
+            const [c, d] = linkedPairs[secondEdge];
+            if ([a, b].some(node => node === c || node === d)) continue;
+            const crossing = segmentsCross(positions[a], positions[b], positions[c], positions[d]);
+            if (!crossing) continue;
+            const edgeX = positions[b].x - positions[a].x, edgeY = positions[b].y - positions[a].y;
+            const edgeLength = Math.max(Math.hypot(edgeX, edgeY), 1);
+            const normalX = -edgeY / edgeLength, normalY = edgeX / edgeLength;
+            const firstMidX = (positions[a].x + positions[b].x) / 2;
+            const firstMidY = (positions[a].y + positions[b].y) / 2;
+            const secondMidX = (positions[c].x + positions[d].x) / 2;
+            const secondMidY = (positions[c].y + positions[d].y) / 2;
+            const side = (secondMidX - firstMidX) * normalX + (secondMidY - firstMidY) * normalY;
+            const sign = Math.abs(side) < .001 ? ((firstEdge + secondEdge) % 2 ? 1 : -1) : side > 0 ? 1 : -1;
+            const force = 2.8;
+            const pushFirstX = -normalX * sign * force;
+            const pushFirstY = -normalY * sign * force;
+            const pushSecondX = normalX * sign * force;
+            const pushSecondY = normalY * sign * force;
+            forces[a].x += pushFirstX * (1 - crossing.t); forces[a].y += pushFirstY * (1 - crossing.t);
+            forces[b].x += pushFirstX * crossing.t; forces[b].y += pushFirstY * crossing.t;
+            forces[c].x += pushSecondX * (1 - crossing.u); forces[c].y += pushSecondY * (1 - crossing.u);
+            forces[d].x += pushSecondX * crossing.u; forces[d].y += pushSecondY * crossing.u;
+          }
+        }
+        const cooling = .62 * (1 - step / 260);
         positions.forEach((point, index) => {
           point.x += (forces[index].x + (width / 2 - point.x) * .002) * cooling;
           point.y += (forces[index].y + (height / 2 - point.y) * .002) * cooling;
