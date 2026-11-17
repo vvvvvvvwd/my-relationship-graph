@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#eaf3e5">
-  <title>我的人物关系图</title>
+  <title>一起来玩燕子</title>
   <style>
     :root {
       color-scheme: light;
@@ -29,13 +29,9 @@
     .page { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 52px; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 26px; }
     .brand { display: flex; align-items: center; gap: 13px; }
-    .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: var(--green); color: white; font-size: 20px; box-shadow: 0 7px 18px rgba(52,117,102,.2); }
+    .brand-mark { min-width: 42px; height: 42px; display: grid; place-items: center; padding: 0 10px; border-radius: 14px; background: var(--green); color: white; font-size: 14px; letter-spacing: .04em; white-space: nowrap; box-shadow: 0 7px 18px rgba(52,117,102,.2); }
     .eyebrow { color: var(--green); font-size: 11px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
     h1 { margin: 3px 0 0; font-family: Georgia, "Songti SC", serif; font-size: clamp(23px, 4vw, 30px); font-weight: 650; letter-spacing: .02em; }
-    .private-note { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 7px; }
-    .private-note span { color: var(--green); font-size: 14px; }
-    .intro { margin-bottom: 22px; }
-    .intro p { margin: 0; color: var(--green); font-size: clamp(20px, 3vw, 25px); font-weight: 700; letter-spacing: .08em; line-height: 1.7; text-shadow: 0 1px 10px rgba(255,255,255,.72); }
     .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
     .search-wrap { position: relative; flex: 1; max-width: 420px; }
     .search-icon { position: absolute; top: 50%; left: 15px; transform: translateY(-50%); color: #87918a; }
@@ -98,18 +94,13 @@
   <main class="page">
     <header>
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">关系</div>
+      <div class="brand-mark" aria-hidden="true">江湖燕云</div>
         <div>
           <div class="eyebrow">PEOPLE & CONNECTIONS</div>
-          <h1 id="site-title">我的人物关系图</h1>
+          <h1 id="site-title">一起来玩燕子</h1>
         </div>
       </div>
-      <div class="private-note"><span aria-hidden="true">●</span>只放你愿意公开的内容</div>
     </header>
-
-    <section class="intro" aria-label="网站介绍">
-      <p>一起来玩燕子</p>
-    </section>
 
     <div class="toolbar">
       <label class="search-wrap">
@@ -155,8 +146,8 @@
     let selectedId = "";
     let database = null;
 
-    document.title = site.title || "我的人物关系图";
-    document.getElementById("site-title").textContent = site.title || "我的人物关系图";
+    document.title = site.title || "一起来玩燕子";
+    document.getElementById("site-title").textContent = site.title || "一起来玩燕子";
 
     function connectDatabase() {
       if (!site.supabaseUrl || !site.supabasePublishableKey || !window.supabase) return false;
