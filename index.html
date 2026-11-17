@@ -72,13 +72,21 @@
     .legend { display:flex; flex-wrap:wrap; gap:8px 15px; padding:11px 22px 0; color:var(--muted); font-size:11px; }
     .legend-item { display:inline-flex; align-items:center; gap:6px; }
     .legend-dot { width:9px; height:9px; border-radius:50%; background:var(--kind-color); }
+    .legend-toggle,.legend-action { display:inline-flex; align-items:center; gap:6px; border:1px solid transparent; border-radius:999px; padding:4px 8px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+    .legend-toggle:hover,.legend-action:hover { border-color:var(--line); background:#fff; }
+    .legend-toggle[aria-pressed="false"] { opacity:.42; }
+    .legend-toggle[aria-pressed="false"] .legend-dot { background:#a8b0a8; }
+    .legend-count { color:var(--green); font-size:10px; }
+    .legend-action { border-color:var(--line); color:var(--green); font-weight:650; }
     .canvas { position: relative; display: block; min-height: 490px; flex: 1; overflow:auto; background-image: linear-gradient(rgba(236, 245, 231, .68), rgba(236, 245, 231, .68)), radial-gradient(#d5e4d2 1px, transparent 1px); background-size: auto, 21px 21px; }
     svg.graph-svg { display:block; width:100%; height:auto; min-height:0; overflow:visible; }
     .edge { stroke:var(--edge-color,#9cab9e); stroke-width:2.8; opacity:.95; }
+    .edge.edge-brotherhood { stroke-width:2; opacity:.68; }
     .edge-label-bg { fill:rgba(250,255,248,.96); stroke:var(--edge-color,#9cab9e); stroke-width:1; }
     .edge-label { fill:#46574c; font-size:12px; font-weight:650; text-anchor:middle; dominant-baseline:central; }
-    .node { cursor:grab; outline:none; touch-action:none; }
+    .node { cursor:grab; outline:none; touch-action:none; user-select:none; -webkit-user-select:none; }
     .node:active { cursor:grabbing; }
+    .node-hit-area { fill:transparent; pointer-events:all; }
     .node circle.node-ring { fill:#fbfff9; stroke:#d6ded8; stroke-width:2; filter:drop-shadow(0 4px 6px rgba(39,54,47,.1)); }
     .node .node-core { fill:#e6efe2; }
     .node.selected-first circle.node-ring { stroke:#718fae; stroke-width:4; }
@@ -160,12 +168,14 @@
             </label>
           </div>
         </div>
-        <div class="pair-result" id="pair-result" aria-live="polite">拖动头像调整位置；点击两位侠友查看他们之间的情谊称呼。</div>
-        <div class="legend" aria-label="关系颜色说明">
-          <span class="legend-item"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒</span>
-          <span class="legend-item"><i class="legend-dot" style="--kind-color:#b98645"></i>结义</span>
-          <span class="legend-item"><i class="legend-dot" style="--kind-color:#b76a74"></i>侠缘</span>
-          <span class="legend-item"><i class="legend-dot" style="--kind-color:#82957f"></i>其他</span>
+        <div class="pair-result" id="pair-result" aria-live="polite">手机按住头像拖动，电脑按住拖动；点击两位侠友看称呼，也可用颜色筛选关系。</div>
+        <div class="legend" aria-label="关系颜色筛选">
+          <button class="legend-item legend-toggle" data-kind="师徒" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#718fae"></i>师徒 <span class="legend-count"></span></button>
+          <button class="legend-item legend-toggle" data-kind="结义" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#b98645"></i>结义 <span class="legend-count"></span></button>
+          <button class="legend-item legend-toggle" data-kind="侠缘" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#b76a74"></i>侠缘 <span class="legend-count"></span></button>
+          <button class="legend-item legend-toggle" data-kind="其他" type="button" aria-pressed="true"><i class="legend-dot" style="--kind-color:#82957f"></i>其他 <span class="legend-count"></span></button>
+          <button class="legend-action" id="show-brotherhood-only" type="button">只看结义</button>
+          <button class="legend-action" id="show-all-relations" type="button">显示全部</button>
         </div>
         <div class="canvas" id="canvas"></div>
       </section>
@@ -194,6 +204,7 @@
     let graphZoom = 1;
     let graphResizeTimer = null;
     let database = null;
+    const hiddenKinds = new Set();
 
     document.title = site.title || "一起来玩燕子";
     document.getElementById("site-title").textContent = site.title || "一起来玩燕子";
@@ -289,6 +300,38 @@
       if (/(侠缘|情缘)/.test(labels)) return "侠缘";
       return "其他";
     }
+    function syncLegendControls() {
+      document.querySelectorAll(".legend-toggle").forEach(button => {
+        const kind = button.dataset.kind;
+        const hidden = hiddenKinds.has(kind);
+        const count = relationships.filter(edge => relationshipKind(edge) === kind).length;
+        button.setAttribute("aria-pressed", String(!hidden));
+        button.setAttribute("aria-label", `${hidden ? "显示" : "隐藏"}${kind}关系，共${count}段`);
+        button.title = `${hidden ? "显示" : "隐藏"}${kind}关系（${count}段）`;
+        const countLabel = button.querySelector(".legend-count");
+        if (countLabel) countLabel.textContent = count ? String(count) : "0";
+      });
+    }
+    document.querySelectorAll(".legend-toggle").forEach(button => {
+      button.addEventListener("click", () => {
+        const kind = button.dataset.kind;
+        if (hiddenKinds.has(kind)) hiddenKinds.delete(kind);
+        else hiddenKinds.add(kind);
+        syncLegendControls();
+        renderGraph();
+      });
+    });
+    document.getElementById("show-brotherhood-only").addEventListener("click", () => {
+      hiddenKinds.clear();
+      Object.keys(kindColors).filter(kind => kind !== "结义").forEach(kind => hiddenKinds.add(kind));
+      syncLegendControls();
+      renderGraph();
+    });
+    document.getElementById("show-all-relations").addEventListener("click", () => {
+      hiddenKinds.clear();
+      syncLegendControls();
+      renderGraph();
+    });
     function edgeForPair(firstId, secondId) {
       return relationships.filter(edge =>
         (String(edge.from_id) === firstId && String(edge.to_id) === secondId) ||
@@ -397,7 +440,7 @@
           const focused = peopleById.get(focusedPersonId);
           result.innerHTML = `正在查看 <strong>${escapeHtml(focused?.name || "这位侠友")}</strong> 的情谊林；点“显示总图谱”返回全员图谱。`;
         } else {
-          result.textContent = "拖动头像调整位置；点击两位侠友查看他们之间的情谊称呼。";
+          result.textContent = "拖动头像调整位置；点击两位侠友查看称呼，也可筛选关系类型。";
         }
         return;
       }
@@ -466,6 +509,7 @@
 
     function renderGraph() {
       canvas.innerHTML = "";
+      syncLegendControls();
       if (!people.length) {
         document.getElementById("graph-heading").textContent = "总情谊图谱";
         document.getElementById("graph-subtitle").textContent = "等名单填好后，这里会出现全员图谱";
@@ -477,9 +521,10 @@
       document.getElementById("random-pair").disabled = people.length < 2;
       const isPersonGraph = graphMode === "person";
       const center = isPersonGraph ? peopleById.get(focusedPersonId) : null;
-      const displayedRelationships = isPersonGraph && center
+      const allDisplayedRelationships = isPersonGraph && center
         ? relationships.filter(edge => String(edge.from_id) === focusedPersonId || String(edge.to_id) === focusedPersonId)
         : relationships;
+      const displayedRelationships = allDisplayedRelationships.filter(edge => !hiddenKinds.has(relationshipKind(edge)));
       let graphPeople = people;
       if (isPersonGraph && center) {
         const relatedIds = new Set(displayedRelationships.flatMap(edge => [String(edge.from_id), String(edge.to_id)]));
@@ -487,7 +532,7 @@
         graphPeople = [center, ...people.filter(person => relatedIds.has(String(person.id)))];
         document.getElementById("graph-heading").textContent = `${center.name || "侠友"}的情谊林`;
         document.getElementById("graph-subtitle").textContent = displayedRelationships.length
-          ? `以此人为中心 · 与 ${displayedRelationships.length} 段情谊相连`
+          ? `以此人为中心 · 显示 ${displayedRelationships.length} 段情谊`
           : "目前还没有直接记录的情谊";
       } else {
         document.getElementById("graph-heading").textContent = "总情谊图谱";
@@ -684,6 +729,9 @@
       }
 
       const edgeVisuals = [];
+      const brotherhoodCount = validEdges.filter(edge => relationshipKind(edge) === "结义").length;
+      const brotherhoodLabelStep = Math.max(1, Math.ceil(brotherhoodCount / 5));
+      let brotherhoodLabelIndex = 0;
       validEdges.forEach(edge => {
         const fromIndex = indexById.get(String(edge.from_id));
         const toIndex = indexById.get(String(edge.to_id));
@@ -693,18 +741,27 @@
         line.setAttribute("x1", from.x); line.setAttribute("y1", from.y);
         line.setAttribute("x2", to.x); line.setAttribute("y2", to.y);
         line.setAttribute("class", "edge");
+        if (kind === "结义") line.classList.add("edge-brotherhood");
         line.style.setProperty("--edge-color", kindColors[kind]);
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        title.textContent = `${kind}关系`;
+        line.appendChild(title);
         svg.appendChild(line);
         const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
         const label = ["师徒", "结义", "侠缘"].includes(edge.kind) ? kind : (edge.label_from || kind);
         const labelWidth = Math.max(42, Array.from(label).length * 13 + 18);
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
-        bg.setAttribute("width", labelWidth); bg.setAttribute("height", 22);
-        bg.setAttribute("rx", 11); bg.setAttribute("class", "edge-label-bg");
-        bg.style.setProperty("--edge-color", kindColors[kind]);
-        svg.appendChild(bg);
-        const labelText = addSvgText(svg, mx, my + 1, label, "edge-label");
+        const showLabel = kind !== "结义" || brotherhoodCount <= 5 || brotherhoodLabelIndex % brotherhoodLabelStep === 0;
+        if (kind === "结义") brotherhoodLabelIndex += 1;
+        let bg = null, labelText = null;
+        if (showLabel) {
+          bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
+          bg.setAttribute("width", labelWidth); bg.setAttribute("height", 22);
+          bg.setAttribute("rx", 11); bg.setAttribute("class", "edge-label-bg");
+          bg.style.setProperty("--edge-color", kindColors[kind]);
+          svg.appendChild(bg);
+          labelText = addSvgText(svg, mx, my + 1, label, "edge-label");
+        }
         edgeVisuals.push({ fromIndex, toIndex, line, bg, labelText, labelWidth, offset: 0 });
       });
 
@@ -734,10 +791,14 @@
           const matrix = svg.getScreenCTM();
           if (!matrix) return;
           const graphPoint = point.matrixTransform(matrix.inverse());
-          activeDrag = { index, pointerId: event.pointerId, offsetX: positions[index].x - graphPoint.x, offsetY: positions[index].y - graphPoint.y, startX: event.clientX, startY: event.clientY, moved: false };
+          activeDrag = { index, pointerId: event.pointerId, pointerType: event.pointerType, offsetX: positions[index].x - graphPoint.x, offsetY: positions[index].y - graphPoint.y, startX: event.clientX, startY: event.clientY, moved: false };
           group.setPointerCapture(event.pointerId);
           event.preventDefault();
         });
+        const hitArea = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        hitArea.setAttribute("r", "42");
+        hitArea.setAttribute("class", "node-hit-area");
+        group.appendChild(hitArea);
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("r", connectedPeople.has(personId) ? "25" : "21");
         circle.setAttribute("class", "node-ring");
@@ -796,8 +857,10 @@
           const length = Math.max(Math.hypot(dx, dy), 1);
           const mx = (from.x + to.x) / 2 - dy / length * offset;
           const my = (from.y + to.y) / 2 + dx / length * offset;
-          bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
-          labelText.setAttribute("x", mx); labelText.setAttribute("y", my + 1);
+          if (bg && labelText) {
+            bg.setAttribute("x", mx - labelWidth / 2); bg.setAttribute("y", my - 11);
+            labelText.setAttribute("x", mx); labelText.setAttribute("y", my + 1);
+          }
         });
       };
       const moveNearbyPeople = movingIndex => {
@@ -864,7 +927,8 @@
         const matrix = svg.getScreenCTM();
         if (!matrix) return;
         const graphPoint = point.matrixTransform(matrix.inverse());
-        if (!activeDrag.moved && Math.hypot(event.clientX - activeDrag.startX, event.clientY - activeDrag.startY) > 4) activeDrag.moved = true;
+        const dragThreshold = activeDrag.pointerType === "touch" ? 9 : 4;
+        if (!activeDrag.moved && Math.hypot(event.clientX - activeDrag.startX, event.clientY - activeDrag.startY) > dragThreshold) activeDrag.moved = true;
         if (!activeDrag.moved) return;
         const dragged = positions[activeDrag.index];
         dragged.x = Math.max(padding, Math.min(width - padding, graphPoint.x + activeDrag.offsetX));
