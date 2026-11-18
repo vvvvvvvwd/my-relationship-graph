@@ -776,6 +776,40 @@
         });
       }
 
+                  const brotherhoodCircleLayouts = [];
+      const placeBrotherhoodGroups = () => {
+        const occupiedByBrotherhood = new Set(brotherhoodGroups.flat());
+        brotherhoodGroups.forEach(members => {
+          const innerRadius = Math.max(78, Math.sqrt(members.length) * 32);
+          const ringRadius = innerRadius + 58;
+          let centerX = members.reduce((sum, index) => sum + positions[index].x, 0) / members.length;
+          let centerY = members.reduce((sum, index) => sum + positions[index].y, 0) / members.length;
+          centerX = Math.max(padding + ringRadius, Math.min(width - padding - ringRadius, centerX));
+          centerY = Math.max(padding + ringRadius, Math.min(height - padding - ringRadius, centerY));
+          members.forEach((index, memberIndex) => {
+            const angle = -Math.PI / 2 + Math.PI * 2 * memberIndex / members.length;
+            positions[index].x = centerX + Math.cos(angle) * innerRadius;
+            positions[index].y = centerY + Math.sin(angle) * innerRadius;
+          });
+          brotherhoodCircleLayouts.push({ members, centerX, centerY, innerRadius, ringRadius });
+        });
+        brotherhoodCircleLayouts.forEach(({ members, centerX, centerY, ringRadius }, groupIndex) => {
+          const safeDistance = ringRadius + 52;
+          positions.forEach((point, index) => {
+            if (occupiedByBrotherhood.has(index)) return;
+            let dx = point.x - centerX, dy = point.y - centerY;
+            let distance = Math.hypot(dx, dy);
+            if (distance >= safeDistance) return;
+            if (distance < .001) {
+              const angle = (index + groupIndex + 1) * 2.399963229728653;
+              dx = Math.cos(angle); dy = Math.sin(angle); distance = 1;
+            }
+            point.x = Math.max(padding, Math.min(width - padding, centerX + dx / distance * safeDistance));
+            point.y = Math.max(padding, Math.min(height - padding, centerY + dy / distance * safeDistance));
+          });
+        });
+      };
+      placeBrotherhoodGroups();
       const tieCircleVisuals = brotherhoodGroups.map(members => {
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("class", "brotherhood-circle");
