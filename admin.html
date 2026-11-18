@@ -42,6 +42,7 @@
     .member-option { display:flex; min-width:0; align-items:center; gap:8px; padding:9px 10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); cursor:pointer; font-size:13px; font-weight:550; }
     .member-option span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .member-option.selected { border-color:#8caf91; background:#edf5e9; }
+    .sisterhood-picker .member-option.selected { border-color:#a593be; background:#f3eff8; }
     .member-option.disabled { opacity:.5; cursor:not-allowed; }
     .status.error { color:var(--red); }
     .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid #efeee8; }
@@ -94,11 +95,11 @@
       </div>
 
       <div class="card">
-        <div class="card-heading"><div><h2>情谊</h2><p>结义可以一次选择 2—10 人；其他关系选择两位人物。</p></div></div>
+        <div class="card-heading"><div><h2>情谊</h2><p>结义可以一次选择 2—10 人；闺蜜关系先选中心人物，再圈选其他闺蜜。</p></div></div>
         <form id="relationship-form">
           <input id="relationship-id" type="hidden">
           <div class="grid">
-            <label>情谊类型<select id="relationship-kind" required><option value="">先选情谊类型</option><option value="师徒">师徒</option><option value="结义">结义</option><option value="侠缘">侠缘</option><option value="其他">其他（自定义）</option></select></label>
+            <label>情谊类型<select id="relationship-kind" required><option value="">先选情谊类型</option><option value="师徒">师徒</option><option value="结义">结义</option><option value="侠缘">侠缘</option><option value="闺蜜">闺蜜</option><option value="其他">其他（自定义）</option></select></label>
             <div></div>
             <label id="from-person-wrap"><span id="from-person-label">师傅</span><select id="from-person" required></select></label>
             <label id="to-person-wrap"><span id="to-person-label">徒弟</span><select id="to-person" required></select></label>
@@ -106,6 +107,12 @@
               <div class="field-label">结义成员（最多 10 人）</div>
               <div id="brotherhood-members" class="member-picker" role="group" aria-label="选择结义成员"></div>
               <p class="status" id="brotherhood-selection-status" aria-live="polite">已选 0 人，请选择 2—10 人。</p>
+            </div>
+            <div id="sisterhood-circle-wrap" class="members-field hidden">
+              <label>中心人物<select id="sisterhood-center"><option value="">先选中心人物</option></select></label>
+              <div class="field-label" style="margin-top:12px">圈内闺蜜</div>
+              <div id="sisterhood-members" class="member-picker sisterhood-picker" role="group" aria-label="选择闺蜜圈成员"></div>
+              <p class="status" id="sisterhood-selection-status" aria-live="polite">先选一位中心人物，再圈选至少一位闺蜜。</p>
             </div>
             <label id="label-from-wrap" class="hidden">A 对 B 的称呼<input id="label-from" maxlength="60" placeholder="例如：朋友"></label>
             <label id="label-to-wrap" class="hidden">B 对 A 的称呼<input id="label-to" maxlength="60" placeholder="例如：知己（可以不填）"></label>
@@ -214,7 +221,7 @@
         small.className = "row-note";
         if (kind) {
           small.classList.add("kind-note");
-          small.style.setProperty("--kind-color", ({"师徒":"#718fae","结义":"#b98645","侠缘":"#b76a74","其他":"#82957f"})[kind] || "#82957f");
+          small.style.setProperty("--kind-color", ({"师徒":"#718fae","结义":"#b98645","侠缘":"#b76a74","闺蜜":"#8b76a6","其他":"#82957f"})[kind] || "#82957f");
         }
         small.textContent = note;
         main.appendChild(small);
@@ -227,7 +234,7 @@
     }
 
     function refreshPeopleSelects() {
-      [document.getElementById("from-person"), document.getElementById("to-person")].forEach(select => {
+      [document.getElementById("from-person"), document.getElementById("to-person"), document.getElementById("sisterhood-center")].forEach(select => {
         const previous = select.value;
         select.innerHTML = "";
         const first = document.createElement("option");
@@ -259,6 +266,7 @@
         memberPicker.appendChild(option);
       });
       updateBrotherhoodSelection();
+      buildSisterhoodMemberPicker(false);
     }
 
     function updateBrotherhoodSelection() {
@@ -275,6 +283,51 @@
       if (status) status.textContent = `已选 ${selectedCount} 人；最多 10 人，至少 2 人。`;
     }
 
+    function buildSisterhoodMemberPicker(preserveSelection = true) {
+      const centerId = String(document.getElementById("sisterhood-center").value || "");
+      const memberPicker = document.getElementById("sisterhood-members");
+      const selectedIds = preserveSelection
+        ? new Set(Array.from(memberPicker.querySelectorAll('input[type="checkbox"]:checked'), input => input.value))
+        : new Set();
+      const registeredIds = new Set(relationships
+        .filter(edge => edge.kind === "闺蜜" && edge.label_from === "闺蜜中心" && String(edge.from_id) === centerId)
+        .map(edge => String(edge.to_id)));
+      memberPicker.innerHTML = "";
+      people.filter(person => String(person.id) !== centerId).forEach(person => {
+        const personId = String(person.id);
+        const registered = registeredIds.has(personId);
+        const option = document.createElement("label");
+        option.className = "member-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = personId;
+        checkbox.checked = registered || selectedIds.has(personId);
+        checkbox.disabled = registered;
+        checkbox.addEventListener("change", updateSisterhoodSelection);
+        const name = document.createElement("span");
+        name.textContent = person.name || "未命名";
+        option.title = registered ? "已经在这个闺蜜圈里" : "点选加入闺蜜圈";
+        option.append(checkbox, name);
+        memberPicker.appendChild(option);
+      });
+      updateSisterhoodSelection();
+    }
+
+    function updateSisterhoodSelection() {
+      const centerId = String(document.getElementById("sisterhood-center").value || "");
+      const selectedCount = document.querySelectorAll('#sisterhood-members input[type="checkbox"]:checked').length;
+      document.querySelectorAll("#sisterhood-members .member-option").forEach(option => {
+        const checkbox = option.querySelector('input[type="checkbox"]');
+        option.classList.toggle("selected", checkbox.checked);
+        option.classList.toggle("disabled", checkbox.disabled);
+      });
+      const status = document.getElementById("sisterhood-selection-status");
+      if (!status) return;
+      status.textContent = centerId
+        ? `中心人物加上已选闺蜜，共 ${selectedCount + 1} 人；至少再选一位。`
+        : "先选一位中心人物，再圈选至少一位闺蜜。";
+    }
+
     function selectedRelationshipKind() {
       return document.getElementById("relationship-kind").value;
     }
@@ -286,8 +339,10 @@
       const fromPersonWrap = document.getElementById("from-person-wrap");
       const toPersonWrap = document.getElementById("to-person-wrap");
       const memberWrap = document.getElementById("brotherhood-members-wrap");
+      const sisterhoodWrap = document.getElementById("sisterhood-circle-wrap");
       const fromPerson = document.getElementById("from-person");
       const toPerson = document.getElementById("to-person");
+      const sisterhoodCenter = document.getElementById("sisterhood-center");
       const customFromWrap = document.getElementById("label-from-wrap");
       const customToWrap = document.getElementById("label-to-wrap");
       const fromInput = document.getElementById("label-from");
@@ -295,24 +350,34 @@
       const help = document.getElementById("relationship-kind-help");
       const custom = kind === "其他";
       const brotherhood = kind === "结义";
+      const sisterhood = kind === "闺蜜";
+      const groupKind = brotherhood || sisterhood;
       fromLabel.textContent = kind === "师徒" ? "师傅" : "人物 A";
       toLabel.textContent = kind === "师徒" ? "徒弟" : "人物 B";
-      fromPersonWrap.classList.toggle("hidden", brotherhood);
-      toPersonWrap.classList.toggle("hidden", brotherhood);
+      fromPersonWrap.classList.toggle("hidden", groupKind);
+      toPersonWrap.classList.toggle("hidden", groupKind);
       memberWrap.classList.toggle("hidden", !brotherhood);
-      fromPerson.required = !brotherhood;
-      toPerson.required = !brotherhood;
+      sisterhoodWrap.classList.toggle("hidden", !sisterhood);
+      fromPerson.required = !groupKind;
+      toPerson.required = !groupKind;
+      sisterhoodCenter.required = sisterhood;
       customFromWrap.classList.toggle("hidden", !custom);
       customToWrap.classList.toggle("hidden", !custom);
       fromInput.required = custom;
       toInput.required = false;
       const tieOption = document.querySelector('#relationship-kind option[value="结义"]');
-      tieOption.disabled = Boolean(document.getElementById("relationship-id").value) && !brotherhood;
+      const sisterhoodOption = document.querySelector('#relationship-kind option[value="闺蜜"]');
+      const editing = Boolean(document.getElementById("relationship-id").value);
+      tieOption.disabled = editing && !brotherhood;
+      sisterhoodOption.disabled = editing && !sisterhood;
       document.getElementById("relationship-save").textContent = document.getElementById("relationship-id").value
-        ? "保存修改" : brotherhood ? "创建结义圈" : "添加关系";
+        ? "保存修改" : brotherhood ? "创建结义圈" : sisterhood ? "创建闺蜜圈" : "添加关系";
       help.textContent = brotherhood ? "选择 2—10 人，保存后会自动登记圈内成员彼此的结义。" :
+        sisterhood ? "先选一位中心人物，再圈选其他闺蜜；总图谱默认隐藏，点击紫色“闺蜜”筛选即可查看圆圈。" :
         kind === "师徒" ? "人物 A 是师傅，人物 B 是徒弟，图谱会按这个方向显示。" :
         kind === "其他" ? "可以填写双方各自使用的称呼。" : kind ? `${kind}会用对应颜色显示在图谱上。` : "请先选择情谊类型。";
+      if (sisterhood && !editing) buildSisterhoodMemberPicker(false);
+      else updateSisterhoodSelection();
     }
 
     function renderPeople() {
@@ -357,12 +422,12 @@
         relationshipRows.innerHTML = '<div class="empty">还没有关系记录。</div>';
         return;
       }
-      const ordinaryEdges = relationships.filter(edge => edge.kind !== "结义");
+      const ordinaryEdges = relationships.filter(edge => !["结义", "闺蜜"].includes(edge.kind));
       ordinaryEdges.forEach(edge => {
         const a = people.find(person => String(person.id) === String(edge.from_id));
         const b = people.find(person => String(person.id) === String(edge.to_id));
         if (!a || !b) return;
-        const kind = ["师徒", "结义", "侠缘"].includes(edge.kind) ? edge.kind : "其他";
+        const kind = ["师徒", "结义", "侠缘", "闺蜜"].includes(edge.kind) ? edge.kind : "其他";
         const edit = makeButton("修改", "", () => {
           document.getElementById("relationship-id").value = edge.id;
           document.getElementById("from-person").value = edge.from_id;
@@ -383,6 +448,42 @@
         const note = kind === "师徒" ? `${a.name} 是师傅，${b.name} 是徒弟` :
           kind === "其他" ? `${edge.label_from || "自定义关系"}${edge.label_to ? ` / ${edge.label_to}` : ""}` : kind;
         addRow(relationshipRows, `${a.name} — ${b.name}`, note, [edit, remove], null, kind);
+      });
+
+      const sisterhoodEdges = relationships.filter(edge => edge.kind === "闺蜜");
+      const sisterhoodGroups = new Map();
+      const ungroupedSisterhoodEdges = [];
+      sisterhoodEdges.forEach(edge => {
+        if (edge.label_from !== "闺蜜中心") { ungroupedSisterhoodEdges.push(edge); return; }
+        const centerId = String(edge.from_id);
+        if (!sisterhoodGroups.has(centerId)) sisterhoodGroups.set(centerId, { centerId, members: new Set([centerId]), edges: [] });
+        const group = sisterhoodGroups.get(centerId);
+        group.members.add(String(edge.to_id));
+        group.edges.push(edge);
+      });
+      sisterhoodGroups.forEach(group => {
+        const members = people.filter(person => group.members.has(String(person.id)));
+        const center = people.find(person => String(person.id) === group.centerId);
+        const names = members.map(person => person.name || "未命名");
+        const remove = makeButton("删除闺蜜圈", "danger", async () => {
+          if (!confirm(`要删除以“${center?.name || "中心人物"}”为中心的闺蜜圈吗？共 ${group.edges.length} 段关系。`)) return;
+          const { error } = await database.from("relationships").delete().in("id", group.edges.map(edge => edge.id));
+          if (error) return setStatus(document.getElementById("relationship-status"), error.message, true);
+          await loadManagerData();
+        });
+        addRow(relationshipRows, `闺蜜圈 · ${members.length} 人`, `中心：${center?.name || "人物"}；成员：${names.join("、")}`, [remove], null, "闺蜜");
+      });
+      ungroupedSisterhoodEdges.forEach(edge => {
+        const a = people.find(person => String(person.id) === String(edge.from_id));
+        const b = people.find(person => String(person.id) === String(edge.to_id));
+        if (!a || !b) return;
+        const remove = makeButton("删除关系", "danger", async () => {
+          if (!confirm(`要删除“${a.name}”和“${b.name}”之间的闺蜜关系吗？`)) return;
+          const { error } = await database.from("relationships").delete().eq("id", edge.id);
+          if (error) return setStatus(document.getElementById("relationship-status"), error.message, true);
+          await loadManagerData();
+        });
+        addRow(relationshipRows, `闺蜜圈 · 2 人`, `${a.name}、${b.name}`, [remove], null, "闺蜜");
       });
 
       const tieEdges = relationships.filter(edge => edge.kind === "结义");
@@ -608,6 +709,7 @@
 
     const relationshipForm = document.getElementById("relationship-form");
     document.getElementById("relationship-kind").addEventListener("change", updateRelationshipFields);
+    document.getElementById("sisterhood-center").addEventListener("change", () => buildSisterhoodMemberPicker(false));
     updateRelationshipFields();
     relationshipForm.addEventListener("submit", async event => {
       event.preventDefault();
@@ -638,6 +740,35 @@
         updateRelationshipFields();
         updateBrotherhoodSelection();
         setStatus(document.getElementById("relationship-status"), `结义圈已保存，新增 ${values.length} 段结义关系。`);
+        await loadManagerData();
+        return;
+      }
+
+      if (kind === "闺蜜") {
+        if (id) return setStatus(document.getElementById("relationship-status"), "请先取消单条关系修改，再创建闺蜜圈。", true);
+        const centerId = String(document.getElementById("sisterhood-center").value || "");
+        const memberIds = Array.from(document.querySelectorAll('#sisterhood-members input[type="checkbox"]:checked'), input => input.value)
+          .filter(memberId => memberId !== centerId);
+        if (!centerId) return setStatus(document.getElementById("relationship-status"), "请先选择闺蜜圈的中心人物。", true);
+        if (!memberIds.length) return setStatus(document.getElementById("relationship-status"), "请至少圈选一位闺蜜。", true);
+        const existingMembers = new Set(relationships
+          .filter(edge => edge.kind === "闺蜜" && edge.label_from === "闺蜜中心" && String(edge.from_id) === centerId)
+          .map(edge => String(edge.to_id)));
+        const values = memberIds.filter(memberId => !existingMembers.has(memberId)).map(memberId => ({
+          from_id: centerId,
+          to_id: memberId,
+          kind: "闺蜜",
+          label_from: "闺蜜中心",
+          label_to: "闺蜜"
+        }));
+        if (!values.length) return setStatus(document.getElementById("relationship-status"), "这些人物已经在这个闺蜜圈里了。", true);
+        const { error } = await database.from("relationships").insert(values);
+        if (error) return setStatus(document.getElementById("relationship-status"), "闺蜜圈保存失败，请检查数据库设置后重试。", true);
+        relationshipForm.reset();
+        document.getElementById("relationship-id").value = "";
+        document.getElementById("relationship-cancel").classList.add("hidden");
+        updateRelationshipFields();
+        setStatus(document.getElementById("relationship-status"), `闺蜜圈已保存，新增 ${values.length} 位闺蜜。`);
         await loadManagerData();
         return;
       }
