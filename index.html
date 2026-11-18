@@ -104,6 +104,10 @@
     .empty-state h3 { margin: 0 0 8px; font-family: Georgia, "Songti SC", serif; font-size: 21px; }
     .empty-state p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
     .empty-hint { display: inline-block; margin-top: 15px; border-radius: 9px; background: #f5f2e9; padding: 8px 11px; color: #806943; font-size: 11px; }
+    .user-guide { margin-bottom: 16px; padding: 16px 20px; }
+    .user-guide h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 17px; }
+    .guide-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 22px; margin: 10px 0 0; padding-left: 22px; color: var(--muted); font-size: 12px; line-height: 1.75; }
+    .guide-list li { padding-left: 3px; }
     footer { margin-top: 18px; color: #8b948e; font-size: 11px; text-align: center; }
     footer a { margin-left: 9px; color: var(--green); text-decoration: none; }
     @media (max-width: 760px) {
@@ -115,6 +119,8 @@
       .layout { grid-template-columns: 1fr; }
       .roster { min-height:auto; max-height:none; position:static; }
       .people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 250px; }
+      .user-guide { padding: 14px 16px; }
+      .guide-list { grid-template-columns: 1fr; gap: 6px; }
       .person-button { min-width: 0; }
       .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .graph-panel { min-height: 430px; }
@@ -146,6 +152,14 @@
       </label>
       <div class="count" id="count">正在整理名单…</div>
     </div>
+
+        <section class="panel user-guide" aria-labelledby="guide-title">
+      <h2 id="guide-title">使用说明</h2>
+      <ol class="guide-list">
+        <li><strong>查找人物、查看个人情谊林：</strong>“江湖游侠”是所有人的名单。可以在上方搜索框输入名字；点击名单中的人物，就会显示以他为中心的情谊连线。点击“显示总图谱”即可返回全员图谱。</li>
+        <li><strong>查看总情谊图谱：</strong>页面下方（电脑上在右侧）是所有人的总图谱。拖动头像可以调整位置，观察不同人物之间的情谊连线；点击“随机选两位”，系统会随机选中两位侠友，并显示他们之间的关系称呼。也可以直接点击图谱中的两个人查看称呼。</li>
+      </ol>
+    </section>
 
     <section class="layout">
       <aside class="panel roster" aria-label="江湖游侠">
